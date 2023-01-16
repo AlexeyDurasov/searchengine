@@ -6,4 +6,6 @@ import searchengine.model.Page;
 
 @Repository
 public interface PagesRepository extends CrudRepository<Page, Integer> {
+
+    Page findByPathLink(String path);
 }

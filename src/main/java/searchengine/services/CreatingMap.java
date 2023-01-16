@@ -1,10 +1,18 @@
 package searchengine.services;
 
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import searchengine.model.Page;
+import searchengine.repositories.PagesRepository;
+import searchengine.repositories.SitesRepository;
 
 import java.io.IOException;
 import java.util.LinkedHashSet;
@@ -12,14 +20,17 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.RecursiveTask;
 
-public class CreatingMap extends RecursiveTask<Set<String>> {
+//@Service
+@RequiredArgsConstructor
+public class CreatingMap extends RecursiveTask<String> {
 
-    private static Set<String> visited = new TreeSet<>();
-    private static String root;
+    private final String root;
+    private final SitesRepository sitesRepository;
+    private final PagesRepository pagesRepository;
 
-    public CreatingMap(String root) {
-        CreatingMap.root = root;
-        System.out.println("constructor - " + root);
+    @Transactional
+    public Page findByPathLink(String path) {
+        return pagesRepository.findByPathLink(path);
     }
 
     public Set<String> parsePage(String url) {
@@ -33,6 +44,7 @@ public class CreatingMap extends RecursiveTask<Set<String>> {
                 String link = element.absUrl("href");
                 if (checkURL(link) && addNewURL(link)) {
                     links.add(link);
+                    System.out.println("every link - " + link);
                 }
             }
             Thread.sleep(200);
@@ -44,26 +56,28 @@ public class CreatingMap extends RecursiveTask<Set<String>> {
         return links;
     }
 
-    private static boolean checkURL(String url) {
+    private boolean checkURL(String url) {
         return url.startsWith(root) && url.endsWith("/");
     }
 
     private synchronized boolean addNewURL(String url) throws InterruptedException {
-        boolean addNewURL = visited.add(url);
-        if (addNewURL) {
-            System.out.println("every - " + url);
-            //Thread.sleep(1000);
+        if(pagesRepository.findByPathLink(url) == null) {
+            Page page = new Page(/*pagesRepository.count() + 1,
+                    sitesRepository.*/);
+            page.setPathLink(url);
+            pagesRepository.save(page);
+            return true;
         }
-        return addNewURL;
+        return false;
     }
 
     @Override
-    protected Set<String> compute() {
+    protected String compute() {
         Set<CreatingMap> tasks = new LinkedHashSet<>();
         for (String link : parsePage(root)) {
-            CreatingMap creatingMap = new CreatingMap(link);
+            CreatingMap creatingMap = new CreatingMap(link, sitesRepository, pagesRepository);
             tasks.add(creatingMap);
-            System.out.println("tasks.add   - " + root);
+            System.out.println("tasks.add  - " + root);
         }
         for (CreatingMap task : tasks) {
             task.fork();
@@ -71,6 +85,6 @@ public class CreatingMap extends RecursiveTask<Set<String>> {
         for (CreatingMap task : tasks) {
             task.join();
         }
-        return visited;
+        return "Task completed";
     }
 }

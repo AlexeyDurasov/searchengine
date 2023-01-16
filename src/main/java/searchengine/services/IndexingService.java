@@ -3,6 +3,7 @@ package searchengine.services;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import searchengine.config.SitesList;
 import searchengine.model.Page;
 import searchengine.model.Site;
@@ -16,8 +17,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 
+@Service
 @RequiredArgsConstructor
-//@NoArgsConstructor
 public class IndexingService {
 
     private final SitesList sites;
@@ -44,15 +45,15 @@ public class IndexingService {
             threads.add(new Thread(()-> {
                 System.out.println(Thread.currentThread());
                 String url = sitesRepository.findById(finalI).get().getUrl();
-                CreatingMap creatingMap = new CreatingMap(url);
+                CreatingMap creatingMap = new CreatingMap(url, sitesRepository, pagesRepository);
                 ForkJoinPool forkJoinPool = new ForkJoinPool();
-                Set<String> links = forkJoinPool.invoke(creatingMap);
-                for (String link : links) {
+                String links = forkJoinPool.invoke(creatingMap);
+                /*for (String link : links) {
                     pagesRepository.save(
                             new Page(1, finalI, finalI,
                                     link, 200, "content"
                             ));
-                }
+                }*/
             }));
         }
         threads.forEach(Thread::start);
