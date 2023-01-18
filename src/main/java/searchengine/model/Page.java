@@ -13,10 +13,10 @@ import java.io.Serializable;
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(indexes = @Index(name = "path_id", columnList = "path_link", unique = true))
-public class Page implements Serializable{
+//@Table(indexes = @Index(name = "path_id", columnList = "path_link", unique = true))
+public class Page /*implements Serializable*/{
     @Id
-    @GeneratedValue
+    //@GeneratedValue//(strategy = GenerationType.IDENTITY)
     private int id;
     @Column(name = "site_id", nullable = false)
     private int siteId;

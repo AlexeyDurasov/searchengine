@@ -1,11 +1,9 @@
 package searchengine.services;
 
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
+import searchengine.config.SiteConfig;
 import searchengine.config.SitesList;
-import searchengine.model.Page;
 import searchengine.model.Site;
 import searchengine.model.Status;
 import searchengine.repositories.PagesRepository;
@@ -14,7 +12,6 @@ import searchengine.repositories.SitesRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 
 @Service
@@ -32,28 +29,34 @@ public class IndexingService {
 
         for (int i = 0; i < sites.getSites().size(); i++) {
             Site site = new Site(
-                    i+1, Status.INDEXED, LocalDateTime.now(), "lastError",
+                    i+1,
+                    Status.INDEXING,
+                    LocalDateTime.now(),
+                    "lastError",
                     sites.getSites().get(i).getUrl(),
                     sites.getSites().get(i).getName());
             sitesRepository.save(site);
         }
 
-        System.out.println(Thread.currentThread());
         List<Thread> threads = new ArrayList<>();
-        for (int i = 1; i <= 3; i++) {
+        long countSites = sitesRepository.count();
+        for (int i = 1+1; i <= countSites-1; i++) {
             int finalI = i;
             threads.add(new Thread(()-> {
                 System.out.println(Thread.currentThread());
-                String url = sitesRepository.findById(finalI).get().getUrl();
+                Site site = sitesRepository.findById(finalI).get();
+                String url = site.getUrl();
                 CreatingMap creatingMap = new CreatingMap(url, sitesRepository, pagesRepository);
                 ForkJoinPool forkJoinPool = new ForkJoinPool();
-                String links = forkJoinPool.invoke(creatingMap);
-                /*for (String link : links) {
-                    pagesRepository.save(
-                            new Page(1, finalI, finalI,
-                                    link, 200, "content"
-                            ));
-                }*/
+                String result = forkJoinPool.invoke(creatingMap);
+                if (result.equals("Task completed")) {
+                    site.setStatus(Status.INDEXED);
+                    sitesRepository.save(site);
+                } else {
+                    site.setStatus(Status.FAILED);
+/*или result*/      site.setLastError(System.err.toString());
+                    sitesRepository.save(site);
+                }
             }));
         }
         threads.forEach(Thread::start);

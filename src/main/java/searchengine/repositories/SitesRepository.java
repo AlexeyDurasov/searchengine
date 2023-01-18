@@ -6,4 +6,6 @@ import searchengine.model.Site;
 
 @Repository
 public interface SitesRepository extends CrudRepository<Site, Integer> {
+
+    Site findByUrl(String url);
 }

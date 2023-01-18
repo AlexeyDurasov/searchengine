@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class Site {
     @Id
-    //@GeneratedValue
+    //@GeneratedValue//(strategy = GenerationType.IDENTITY)
     private int id;
     @Enumerated(EnumType.STRING)
     @Column(columnDefinition = "ENUM('INDEXING', 'INDEXED', 'FAILED')", nullable = false)

@@ -3,6 +3,7 @@ package searchengine.services;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import org.jsoup.Connection;
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -11,10 +12,12 @@ import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.Page;
+import searchengine.model.Site;
 import searchengine.repositories.PagesRepository;
 import searchengine.repositories.SitesRepository;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.TreeSet;
@@ -33,16 +36,21 @@ public class CreatingMap extends RecursiveTask<String> {
         return pagesRepository.findByPathLink(path);
     }
 
+    @Transactional
+    public Site findByUrl(String url) {
+        return sitesRepository.findByUrl(url);
+    }
+
     public Set<String> parsePage(String url) {
-        Document doc;
         Set<String> links = new TreeSet<>();
         try {
-            doc = Jsoup.connect(url).maxBodySize(0).get();
+            Connection connection = Jsoup.connect(url).maxBodySize(0);
+            Document doc = connection.get();
             Elements elements = doc.select("a[href]");
 
             for (Element element : elements) {
                 String link = element.absUrl("href");
-                if (checkURL(link) && addNewURL(link)) {
+                if (checkURL(link) && addNewURL(link, connection.execute().statusCode(), doc)) {
                     links.add(link);
                     System.out.println("every link - " + link);
                 }
@@ -60,12 +68,25 @@ public class CreatingMap extends RecursiveTask<String> {
         return url.startsWith(root) && url.endsWith("/");
     }
 
-    private synchronized boolean addNewURL(String url) throws InterruptedException {
+    private synchronized boolean addNewURL(String url, int statusCode, Document content) throws InterruptedException {
         if(pagesRepository.findByPathLink(url) == null) {
-            Page page = new Page(/*pagesRepository.count() + 1,
-                    sitesRepository.*/);
-            page.setPathLink(url);
+            String pathLink;
+            String contentToString = content.toString();
+            if (url.equals(root)) {
+                pathLink = "/";
+            } else {
+                pathLink = url.substring(root.length()); // уточнить
+            }
+            Page page = new Page(
+                    (int)pagesRepository.count() + 1,
+                    sitesRepository.findByUrl(url).getId(),
+                    pathLink,
+                    statusCode,
+                    contentToString);
             pagesRepository.save(page);
+            Site site = sitesRepository.findByUrl(url);
+            site.setStatusTime(LocalDateTime.now());
+            sitesRepository.save(site);
             return true;
         }
         return false;
