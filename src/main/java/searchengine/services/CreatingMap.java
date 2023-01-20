@@ -25,9 +25,9 @@ import java.util.concurrent.RecursiveTask;
 
 //@Service
 @RequiredArgsConstructor
-public class CreatingMap extends RecursiveTask<String> {
+public class CreatingMap extends RecursiveTask<Set<String>> {
 
-    private static String mainSite;
+    private static String mainSite = "mainSite";
     private final String root;
     private final SitesRepository sitesRepository;
     private final PagesRepository pagesRepository;
@@ -43,51 +43,81 @@ public class CreatingMap extends RecursiveTask<String> {
     }
 
     @Override
-    protected String compute() {
-        mainSite = root;
+    protected Set<String> compute() {
+        if (mainSite.equals("mainSite")) {
+            mainSite = root;
+        }
+        System.out.println("every start - " + Thread.currentThread() + mainSite);
         Set<CreatingMap> tasks = new LinkedHashSet<>();
-        for (String link : parsePage(root)) {
+        Set<String> pageLinks = parsePage(root);
+        for (String link : pageLinks) {
             CreatingMap creatingMap = new CreatingMap(link, sitesRepository, pagesRepository);
             tasks.add(creatingMap);
-            System.out.println("tasks.add  - " + root);
+            System.out.println("tasks.add  - root = " + root);
+            System.out.println("             link = " + link);
         }
         for (CreatingMap task : tasks) {
             task.fork();
+            System.out.println("fork - " + task.root);
         }
         for (CreatingMap task : tasks) {
+            System.out.println("start join - " + Thread.currentThread() + task.root);
             task.join();
+            System.out.println("stop  join - " + Thread.currentThread() + task.root);
         }
-        return "Task completed";
+        System.out.println("Task completed - " + root);
+        return pageLinks;
     }
 
     public Set<String> parsePage(String url) {
+        long start = System.currentTimeMillis();
+        System.out.println("start parsePage - " + url);
         Set<String> links = new TreeSet<>();
         try {
             if (checkURL(url)) {
-                Document doc = Jsoup.connect(url).maxBodySize(0).get();
-                Elements elements = doc.select("a[href]");
+                Connection connection = Jsoup.connect(url).maxBodySize(0);
+                Document doc = connection.get();
+                //System.out.println("open url - " + url);
 
-                for (Element element : elements) {
-                    Thread.sleep(200);
-                    String link = element.absUrl("href");
+                if (addNewURL(url, connection.execute().statusCode(), doc)) {
+                    //System.out.println("add new url  - " + url);
 
-                    if (checkURL(link)) {
-                        Connection connection = Jsoup.connect(link).maxBodySize(0);
-                        doc = connection.get();
+                    Elements elements = doc.select("a[href]");
 
-                        if (addNewURL(link, connection.execute().statusCode(), doc)) {
-                            links.add(link);
-                            System.out.println("every link - " + link);
+                    for (Element element : elements) {
+                        String link = element.absUrl("href");
+                        //System.out.println("find element - " + link);
+
+                        if (checkURL(link)) {
+                            Thread.sleep(200);
+                            connection = Jsoup.connect(link).maxBodySize(0);
+                            doc = connection.get();
+                            //System.out.println("open  link  -  " + link);
+
+                            if (addNewURL(link, connection.execute().statusCode(), doc)) {
+                                links.add(link);
+                                //System.out.println("add new link - " + link);
+                            } else {
+                                //System.out.println("already have link - " + link);
+                            }
+                        } else {
+                            //System.out.println("another link - " + link);
                         }
                     }
+                    Thread.sleep(200);
+                } else {
+                    //System.out.println("already have url - " + url);
                 }
-                Thread.sleep(200);
+            } else {
+                //System.out.println("another url  - " + url);
             }
         } catch (HttpStatusException ex) {
             return new TreeSet<>();
         } catch (IOException | InterruptedException ex) {
             ex.printStackTrace();
         }
+        System.out.println("end parsePage - " + url);
+        System.out.println("time working  - " + (System.currentTimeMillis() - start) + " ms");
         return links;
     }
 

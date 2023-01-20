@@ -12,6 +12,7 @@ import searchengine.repositories.SitesRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 
 @Service
@@ -48,20 +49,24 @@ public class IndexingService {
                 String url = site.getUrl();
                 CreatingMap creatingMap = new CreatingMap(url, sitesRepository, pagesRepository);
                 ForkJoinPool forkJoinPool = new ForkJoinPool();
-                String result = forkJoinPool.invoke(creatingMap);
-                if (result.equals("Task completed")) {
+                Set<String> result = forkJoinPool.invoke(creatingMap);
+                /*if (result.equals("Task completed")) {
                     site.setStatus(Status.INDEXED);
                     sitesRepository.save(site);
                 } else {
                     site.setStatus(Status.FAILED);
-/*или result*/      site.setLastError(System.err.toString());
+*//*или result*//*      site.setLastError(System.err.toString());
                     sitesRepository.save(site);
-                }
+                }*/
             }));
         }
         threads.forEach(Thread::start);
-        for (Thread thread : threads) {
-            thread.join();
+        for (Thread mainThread : threads) {
+            /*for (Thread thread : mainThread.getThreadGroup().) {
+
+            }*/
+            mainThread.join();
+            System.out.println(mainThread + " - join");
         }
         //Thread.currentThread().join();
     }
