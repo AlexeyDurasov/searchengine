@@ -38,15 +38,15 @@ public class IndexingService {
                     sites.getSites().get(i).getName());
             sitesRepository.save(site);
         }
-
+        System.out.println("\nstartIndexing" + " - " + Thread.currentThread() + " - " + Thread.currentThread().getThreadGroup() + "\n");
         List<Thread> threads = new ArrayList<>();
         long countSites = sitesRepository.count();
         for (int i = 1+1; i <= countSites-1; i++) {
             int finalI = i;
             threads.add(new Thread(()-> {
-                System.out.println(Thread.currentThread());
                 Site site = sitesRepository.findById(finalI).get();
                 String url = site.getUrl();
+                System.out.println("\n" + url + " - " + Thread.currentThread() + " - " + Thread.currentThread().getThreadGroup() + "\n");
                 CreatingMap creatingMap = new CreatingMap(url, sitesRepository, pagesRepository);
                 ForkJoinPool forkJoinPool = new ForkJoinPool();
                 Set<String> result = forkJoinPool.invoke(creatingMap);
@@ -61,12 +61,9 @@ public class IndexingService {
             }));
         }
         threads.forEach(Thread::start);
-        for (Thread mainThread : threads) {
-            /*for (Thread thread : mainThread.getThreadGroup().) {
-
-            }*/
-            mainThread.join();
-            System.out.println(mainThread + " - join");
+        for (Thread siteThread : threads) {
+            siteThread.join();
+            System.out.println(siteThread + " - join - " + siteThread.getThreadGroup());
         }
         //Thread.currentThread().join();
     }

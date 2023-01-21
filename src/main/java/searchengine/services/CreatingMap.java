@@ -47,25 +47,25 @@ public class CreatingMap extends RecursiveTask<Set<String>> {
         if (mainSite.equals("mainSite")) {
             mainSite = root;
         }
-        System.out.println("every start - " + Thread.currentThread() + mainSite);
+        System.out.println("every start - " + Thread.currentThread() + " - " + Thread.currentThread().getThreadGroup() + " - " + root);
         Set<CreatingMap> tasks = new LinkedHashSet<>();
         Set<String> pageLinks = parsePage(root);
         for (String link : pageLinks) {
             CreatingMap creatingMap = new CreatingMap(link, sitesRepository, pagesRepository);
             tasks.add(creatingMap);
-            System.out.println("tasks.add  - root = " + root);
-            System.out.println("             link = " + link);
+            //System.out.println("tasks.add  - root = " + root);
+            //System.out.println("             link = " + link);
         }
         for (CreatingMap task : tasks) {
             task.fork();
-            System.out.println("fork - " + task.root);
+            //System.out.println("fork - " + task.root);
         }
         for (CreatingMap task : tasks) {
-            System.out.println("start join - " + Thread.currentThread() + task.root);
+            //System.out.println("start join - " + Thread.currentThread() + task.root);
             task.join();
-            System.out.println("stop  join - " + Thread.currentThread() + task.root);
+            //System.out.println("stop  join - " + Thread.currentThread() + task.root);
         }
-        System.out.println("Task completed - " + root);
+        System.out.println("every stop - " + Thread.currentThread() + " - " + Thread.currentThread().getThreadGroup() + " - " + root);
         return pageLinks;
     }
 
@@ -134,6 +134,7 @@ public class CreatingMap extends RecursiveTask<Set<String>> {
             page = new Page(
                     (int)pagesRepository.count() + 1,
                     site.getId(),
+                    root,
                     pathLink,
                     statusCode,
                     url/*content.toString()*/);
