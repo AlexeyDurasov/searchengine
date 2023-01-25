@@ -44,6 +44,7 @@ public class CreatingMap extends RecursiveTask<Set<String>> {
 
     @Override
     protected Set<String> compute() {
+        System.out.println(mainSite);
         if (mainSite.equals("mainSite")) {
             mainSite = root;
         }
@@ -65,7 +66,7 @@ public class CreatingMap extends RecursiveTask<Set<String>> {
             task.join();
             //System.out.println("stop  join - " + Thread.currentThread() + task.root);
         }
-        System.out.println("every stop - " + Thread.currentThread() + " - " + Thread.currentThread().getThreadGroup() + " - " + root);
+        //System.out.println("every stop - " + Thread.currentThread() + " - " + Thread.currentThread().getThreadGroup() + " - " + root);
         return pageLinks;
     }
 
@@ -78,9 +79,6 @@ public class CreatingMap extends RecursiveTask<Set<String>> {
                 Connection connection = Jsoup.connect(url).maxBodySize(0);
                 Document doc = connection.get();
                 //System.out.println("open url - " + url);
-
-                if (addNewURL(url, connection.execute().statusCode(), doc)) {
-                    //System.out.println("add new url  - " + url);
 
                     Elements elements = doc.select("a[href]");
 
@@ -95,19 +93,18 @@ public class CreatingMap extends RecursiveTask<Set<String>> {
                             //System.out.println("open  link  -  " + link);
 
                             if (addNewURL(link, connection.execute().statusCode(), doc)) {
-                                links.add(link);
-                                //System.out.println("add new link - " + link);
+                                if (!link.equals(mainSite)) {
+                                    links.add(link);
+                                }
+                                System.out.println("add new link - " + link);
                             } else {
-                                //System.out.println("already have link - " + link);
+                                System.out.println("already have link - " + link);
                             }
                         } else {
                             //System.out.println("another link - " + link);
                         }
                     }
                     Thread.sleep(200);
-                } else {
-                    //System.out.println("already have url - " + url);
-                }
             } else {
                 //System.out.println("another url  - " + url);
             }
