@@ -1,31 +1,26 @@
 package searchengine.services;
 
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Connection;
-import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.Page;
 import searchengine.model.Site;
 import searchengine.repositories.PagesRepository;
 import searchengine.repositories.SitesRepository;
 
-import java.io.IOException;
+import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.RecursiveTask;
+import java.util.concurrent.RecursiveAction;
 
-//@Service
 @RequiredArgsConstructor
-public class CreatingMap extends RecursiveTask<Set<String>> {
+public class CreatingMap extends RecursiveAction {
 
     private static String mainSite = "mainSite";
     private final String root;
@@ -43,12 +38,11 @@ public class CreatingMap extends RecursiveTask<Set<String>> {
     }
 
     @Override
-    protected Set<String> compute() {
+    protected void compute() {
         System.out.println(mainSite);
         if (mainSite.equals("mainSite")) {
             mainSite = root;
         }
-        System.out.println("every start - " + Thread.currentThread() + " - " + Thread.currentThread().getThreadGroup() + " - " + root);
         Set<CreatingMap> tasks = new LinkedHashSet<>();
         Set<String> pageLinks = parsePage(root);
         for (String link : pageLinks) {
@@ -67,7 +61,6 @@ public class CreatingMap extends RecursiveTask<Set<String>> {
             //System.out.println("stop  join - " + Thread.currentThread() + task.root);
         }
         //System.out.println("every stop - " + Thread.currentThread() + " - " + Thread.currentThread().getThreadGroup() + " - " + root);
-        return pageLinks;
     }
 
     public Set<String> parsePage(String url) {
@@ -89,7 +82,7 @@ public class CreatingMap extends RecursiveTask<Set<String>> {
                         if (checkURL(link)) {
                             Thread.sleep(200);
                             connection = Jsoup.connect(link).maxBodySize(0);
-                            doc = connection.get();
+                            doc = Jsoup.parse(new URL(link).openStream(), "UTF-8", link); //connection.get();
                             //System.out.println("open  link  -  " + link);
 
                             if (addNewURL(link, connection.execute().statusCode(), doc)) {
@@ -108,14 +101,20 @@ public class CreatingMap extends RecursiveTask<Set<String>> {
             } else {
                 //System.out.println("another url  - " + url);
             }
-        } catch (HttpStatusException ex) {
-            return new TreeSet<>();
-        } catch (IOException | InterruptedException ex) {
+        } catch (Exception ex) {
+            error(ex);
             ex.printStackTrace();
+            //return new TreeSet<>();
         }
         System.out.println("end parsePage - " + url);
         System.out.println("time working  - " + (System.currentTimeMillis() - start) + " ms");
         return links;
+    }
+
+    private synchronized void error(Exception ex) {
+        Site site = sitesRepository.findByUrl(mainSite);
+        site.setLastError(ex.toString());
+        sitesRepository.save(site);
     }
 
     private boolean checkURL(String url) {
@@ -134,7 +133,7 @@ public class CreatingMap extends RecursiveTask<Set<String>> {
                     root,
                     pathLink,
                     statusCode,
-                    url/*content.toString()*/);
+                    content.toString());
             pagesRepository.save(page);
             site.setStatusTime(LocalDateTime.now());
             sitesRepository.save(site);
