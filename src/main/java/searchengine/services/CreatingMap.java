@@ -7,138 +7,151 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.transaction.annotation.Transactional;
+import searchengine.model.Index;
+import searchengine.model.Lemma;
 import searchengine.model.Page;
 import searchengine.model.Site;
+import searchengine.repositories.IndexesRepository;
+import searchengine.repositories.LemmasRepository;
 import searchengine.repositories.PagesRepository;
 import searchengine.repositories.SitesRepository;
 
-import java.net.URL;
+import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.LinkedHashSet;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.concurrent.RecursiveAction;
 
 @RequiredArgsConstructor
 public class CreatingMap extends RecursiveAction {
 
-    private static String mainSite = "mainSite";
+    private final Site mainSite;
     private final String root;
     private final SitesRepository sitesRepository;
     private final PagesRepository pagesRepository;
-
-    @Transactional
-    public Page findByPathLink(String path) {
-        return pagesRepository.findByPathLink(path);
-    }
-
-    @Transactional
-    public Site findByUrl(String url) {
-        return sitesRepository.findByUrl(url);
-    }
+    private final IndexesRepository indexesRepository;
+    private final LemmasRepository lemmasRepository;
 
     @Override
     protected void compute() {
-        System.out.println(mainSite);
-        if (mainSite.equals("mainSite")) {
-            mainSite = root;
-        }
-        Set<CreatingMap> tasks = new LinkedHashSet<>();
+        Set<CreatingMap> tasks = new HashSet<>();
         Set<String> pageLinks = parsePage(root);
         for (String link : pageLinks) {
-            CreatingMap creatingMap = new CreatingMap(link, sitesRepository, pagesRepository);
+            CreatingMap creatingMap = new CreatingMap(mainSite,
+                    link, sitesRepository, pagesRepository,
+                    indexesRepository, lemmasRepository);
             tasks.add(creatingMap);
-            //System.out.println("tasks.add  - root = " + root);
-            //System.out.println("             link = " + link);
         }
         for (CreatingMap task : tasks) {
             task.fork();
-            //System.out.println("fork - " + task.root);
         }
         for (CreatingMap task : tasks) {
-            //System.out.println("start join - " + Thread.currentThread() + task.root);
             task.join();
-            //System.out.println("stop  join - " + Thread.currentThread() + task.root);
         }
-        //System.out.println("every stop - " + Thread.currentThread() + " - " + Thread.currentThread().getThreadGroup() + " - " + root);
     }
 
-    public Set<String> parsePage(String url) {
+    private Set<String> parsePage(String url) {
         long start = System.currentTimeMillis();
         System.out.println("start parsePage - " + url);
-        Set<String> links = new TreeSet<>();
+        Set<String> links = new HashSet<>();
         try {
             if (checkURL(url)) {
                 Connection connection = Jsoup.connect(url).maxBodySize(0);
                 Document doc = connection.get();
-                //System.out.println("open url - " + url);
-
-                    Elements elements = doc.select("a[href]");
-
-                    for (Element element : elements) {
-                        String link = element.absUrl("href");
-                        //System.out.println("find element - " + link);
-
-                        if (checkURL(link)) {
-                            Thread.sleep(200);
-                            connection = Jsoup.connect(link).maxBodySize(0);
-                            doc = Jsoup.parse(new URL(link).openStream(), "UTF-8", link); //connection.get();
-                            //System.out.println("open  link  -  " + link);
-
-                            if (addNewURL(link, connection.execute().statusCode(), doc)) {
-                                if (!link.equals(mainSite)) {
-                                    links.add(link);
-                                }
-                                System.out.println("add new link - " + link);
-                            } else {
-                                System.out.println("already have link - " + link);
-                            }
-                        } else {
-                            //System.out.println("another link - " + link);
+                Elements elements = doc.select("a[href]");
+                for (Element element : elements) {
+                    String link = element.absUrl("href");
+                    if (checkURL(link)) {
+                        Thread.sleep(200);
+                        connection = Jsoup.connect(link).maxBodySize(0);
+                        String content = connection.get().toString();
+                        int statusCode = connection.execute().statusCode();
+                        if (addNewURL(link, statusCode, content)) {
+                            links.add(link);
+                            System.out.println("add new link - " + link);
                         }
                     }
-                    Thread.sleep(200);
-            } else {
-                //System.out.println("another url  - " + url);
+                }
+                Thread.sleep(200);
             }
         } catch (Exception ex) {
-            error(ex);
+            mainSite.setLastError(ex.toString());
+            sitesRepository.save(mainSite);
             ex.printStackTrace();
-            //return new TreeSet<>();
         }
         System.out.println("end parsePage - " + url);
         System.out.println("time working  - " + (System.currentTimeMillis() - start) + " ms");
         return links;
     }
 
-    private synchronized void error(Exception ex) {
-        Site site = sitesRepository.findByUrl(mainSite);
-        site.setLastError(ex.toString());
-        sitesRepository.save(site);
-    }
-
     private boolean checkURL(String url) {
-        return url.startsWith(mainSite) && url.endsWith("/");
+        return url.startsWith(mainSite.getUrl()) && url.endsWith("/");
     }
 
-    private synchronized boolean addNewURL(String url, int statusCode, Document content) throws InterruptedException {
-        String pathLink = url.substring(mainSite.length()-1);
-        Site site = sitesRepository.findByUrl(mainSite);
-        Page page = pagesRepository.findByPathLink(pathLink);
-        if(page == null ||
-                (page.getPathLink().equals("/") && page.getSiteId() != site.getId())) {
-            page = new Page(
-                    (int)pagesRepository.count() + 1,
-                    site.getId(),
-                    root,
-                    pathLink,
-                    statusCode,
-                    content.toString());
+    public synchronized boolean addNewURL(String url, int statusCode, String content) throws IOException {
+        String pathLink = url.substring(mainSite.getUrl().length()-1);
+        Page page;
+        if (pathLink.equals("/")) {
+            page = pagesRepository.findByPathLinkAndSite(pathLink, mainSite.getId());
+        } else {
+            page = pagesRepository.findByPathLink(pathLink);
+        }
+        if(page == null) {
+            mainSite.setStatusTime(LocalDateTime.now());
+            sitesRepository.save(mainSite);
+            page = new Page();
+            page.setPathLink(pathLink);
+            page.setCode(statusCode);
+            page.setContent(content);
+            page.setSite(mainSite);
             pagesRepository.save(page);
-            site.setStatusTime(LocalDateTime.now());
-            sitesRepository.save(site);
+            page = pagesRepository.findByPathLinkAndSite(pathLink, mainSite.getId());
+            if (statusCode < 400) {
+                addLemmasAndIndexes(content, mainSite, page);
+            }
             return true;
         }
         return false;
+    }
+
+    private synchronized void addLemmasAndIndexes(String content, Site site, Page page) throws IOException {
+        LemmaFinder creatingLemmas = LemmaFinder.getInstance();
+        Map<String, Integer> mapLemmas = new HashMap<>(creatingLemmas.collectLemmas(content));
+        Set<String> setLemmas = new HashSet<>(mapLemmas.keySet());
+        for (String newLemma : setLemmas) {
+            Lemma lemma = lemmasRepository.findByLemma(newLemma);
+            if (lemma == null) {
+                lemma = new Lemma();
+                lemma.setSiteId(site.getId());
+                lemma.setLemma(newLemma);
+                lemma.setFrequency(1);
+            } else {
+                lemma.setFrequency(lemma.getFrequency() + 1);
+            }
+            lemmasRepository.save(lemma);
+            lemma = lemmasRepository.findByLemma(newLemma);
+
+            Index index = new Index();
+            index.setPage(page);
+            index.setLemmaId(lemma.getId());
+            index.setRank(mapLemmas.get(newLemma));
+            indexesRepository.save(index);
+        }
+    }
+
+    public void deleteLemmasAndIndexes(String content, int pageId) throws IOException {
+        LemmaFinder creatingLemmas = LemmaFinder.getInstance();
+        Map<String, Integer> mapLemmas = new HashMap<>(creatingLemmas.collectLemmas(content));
+        Set<String> setLemmas = new HashSet<>(mapLemmas.keySet());
+        for (String newLemma : setLemmas) {
+            Lemma lemma = lemmasRepository.findByLemma(newLemma);
+            if (lemma.getFrequency() == 1) {
+                lemmasRepository.delete(lemma);
+            } else {
+                lemma.setFrequency(lemma.getFrequency() - 1);
+                lemmasRepository.save(lemma);
+            }
+        }
+        Iterable<Index> indexIterable = indexesRepository.findAllByPageId(pageId);
+        indexesRepository.deleteAll(indexIterable);
     }
 }

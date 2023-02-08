@@ -6,7 +6,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import javax.persistence.*;
+import javax.persistence.Index;
 import java.io.Serializable;
+import java.util.Set;
 
 @Setter
 @Getter
@@ -14,17 +16,23 @@ import java.io.Serializable;
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(indexes = {@Index(name = "path_id", columnList = "path_link", unique = true)})
-public class Page {
+public class Page implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
-    @Column(name = "site_id", nullable = false)
-    private int siteId;
-    @Column(columnDefinition = "TEXT", nullable = false)
-    private String parent;
     @Column(name = "path_link",columnDefinition = "TEXT", nullable = false)
     private String pathLink;
     private int code;
     @Column(columnDefinition = "MEDIUMTEXT", nullable = false)
     private String content;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "site_id", nullable = false)
+    private Site site;
+    /*@OneToMany
+    @JoinColumn(name = "index_id", nullable = false)
+    Set<searchengine.model.Index> indexesSet;
+
+    public void addIndex(searchengine.model.Index index) {
+        indexesSet.add(index);
+    }*/
 }

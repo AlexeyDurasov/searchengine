@@ -3,12 +3,15 @@ package searchengine.controllers;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.IndexingService;
 import searchengine.services.StatisticsService;
+
+import java.io.IOException;
 
 // http://localhost:8080/
 @RestController
@@ -25,12 +28,17 @@ public class ApiController {
     }
 
     @GetMapping("/startIndexing")
-    public ResponseEntity<IndexingResponse> startIndexing() throws InterruptedException {
+    public ResponseEntity<IndexingResponse> startIndexing() throws InterruptedException, IOException {
         return ResponseEntity.ok(indexingService.getStartIndexing());
     }
 
     @GetMapping("/stopIndexing")
     public ResponseEntity<IndexingResponse> stopIndexing() {
         return ResponseEntity.ok(indexingService.getStopIndexing());
+    }
+
+    @PostMapping("/indexPage")
+    public ResponseEntity<IndexingResponse> indexPage(String url) throws IOException {
+        return ResponseEntity.ok(indexingService.getIndexingPage(url));
     }
 }

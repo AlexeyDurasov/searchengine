@@ -19,7 +19,7 @@ spring:
     url: jdbc:mysql://localhost:3306/
       search_engine?useSSL=false
       &requireSSL=false
-      &allowPublicKeyRetrieval=true
+      &allowPublicKeyRetrieval=true&characterEncoding=utf8
   jpa:
     properties:
       hibernate:
