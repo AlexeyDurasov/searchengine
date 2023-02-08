@@ -158,7 +158,7 @@ public class IndexingServiceImpl implements IndexingService{
                     page.setSite(site);
                     pagesRepository.save(page);
                 }
-                page = pagesRepository.findByPathLinkAndSite(pathLink, site.getId());
+                page = pagesRepository.findByPathLinkAndSite(pathLink, site);
                 CreatingMap creatingMap = new CreatingMap(site, url,
                         sitesRepository, pagesRepository,
                         indexesRepository, lemmasRepository);
@@ -167,7 +167,7 @@ public class IndexingServiceImpl implements IndexingService{
                     creatingMap.deleteLemmasAndIndexes(content, page.getId());
                     pagesRepository.delete(page);
                 }
-                String content = pagesRepository.findByPathLinkAndSite(pathLink, site.getId()).getContent(); //connection.get().toString();
+                String content = pagesRepository.findByPathLink(url).getContent(); //connection.get().toString();
                 creatingMap.addNewURL(url, statusCode, content);
             } catch (IOException | InterruptedException e) {
                 throw new RuntimeException(e);

@@ -27,7 +27,7 @@ public class Transactions {
     }
 
     @Transactional
-    public Page findByPathLinkAndSite(String pathLink, int site) {
+    public Page findByPathLinkAndSite(String pathLink, Site site) {
         return pagesRepository.findByPathLinkAndSite(pathLink, site);
     }
 

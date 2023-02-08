@@ -91,7 +91,7 @@ public class CreatingMap extends RecursiveAction {
         String pathLink = url.substring(mainSite.getUrl().length()-1);
         Page page;
         if (pathLink.equals("/")) {
-            page = pagesRepository.findByPathLinkAndSite(pathLink, mainSite.getId());
+            page = pagesRepository.findByPathLinkAndSite(pathLink, mainSite);
         } else {
             page = pagesRepository.findByPathLink(pathLink);
         }
@@ -104,7 +104,6 @@ public class CreatingMap extends RecursiveAction {
             page.setContent(content);
             page.setSite(mainSite);
             pagesRepository.save(page);
-            page = pagesRepository.findByPathLinkAndSite(pathLink, mainSite.getId());
             if (statusCode < 400) {
                 addLemmasAndIndexes(content, mainSite, page);
             }
@@ -128,7 +127,6 @@ public class CreatingMap extends RecursiveAction {
                 lemma.setFrequency(lemma.getFrequency() + 1);
             }
             lemmasRepository.save(lemma);
-            lemma = lemmasRepository.findByLemma(newLemma);
 
             Index index = new Index();
             index.setPage(page);
@@ -144,11 +142,13 @@ public class CreatingMap extends RecursiveAction {
         Set<String> setLemmas = new HashSet<>(mapLemmas.keySet());
         for (String newLemma : setLemmas) {
             Lemma lemma = lemmasRepository.findByLemma(newLemma);
-            if (lemma.getFrequency() == 1) {
-                lemmasRepository.delete(lemma);
-            } else {
-                lemma.setFrequency(lemma.getFrequency() - 1);
-                lemmasRepository.save(lemma);
+            if (lemma != null) {
+                if (lemma.getFrequency() == 1) {
+                    lemmasRepository.delete(lemma);
+                } else {
+                    lemma.setFrequency(lemma.getFrequency() - 1);
+                    lemmasRepository.save(lemma);
+                }
             }
         }
         Iterable<Index> indexIterable = indexesRepository.findAllByPageId(pageId);
