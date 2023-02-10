@@ -96,23 +96,25 @@ public class CreatingMap extends RecursiveAction {
             page = pagesRepository.findByPathLink(pathLink);
         }
         if(page == null) {
-            mainSite.setStatusTime(LocalDateTime.now());
-            sitesRepository.save(mainSite);
             page = new Page();
             page.setPathLink(pathLink);
             page.setCode(statusCode);
             page.setContent(content);
             page.setSite(mainSite);
+            page.setIndexes(new HashSet<>());
             pagesRepository.save(page);
+            mainSite.addPage(page);
+            mainSite.setStatusTime(LocalDateTime.now());
+            sitesRepository.save(mainSite);
             if (statusCode < 400) {
-                addLemmasAndIndexes(content, mainSite, page);
+                addLemmasAndIndexes(content, page);
             }
             return true;
         }
         return false;
     }
 
-    private synchronized void addLemmasAndIndexes(String content, Site site, Page page) throws IOException {
+    private synchronized void addLemmasAndIndexes(String content, Page page) throws IOException {
         LemmaFinder creatingLemmas = LemmaFinder.getInstance();
         Map<String, Integer> mapLemmas = new HashMap<>(creatingLemmas.collectLemmas(content));
         Set<String> setLemmas = new HashSet<>(mapLemmas.keySet());
@@ -120,19 +122,24 @@ public class CreatingMap extends RecursiveAction {
             Lemma lemma = lemmasRepository.findByLemma(newLemma);
             if (lemma == null) {
                 lemma = new Lemma();
-                lemma.setSiteId(site.getId());
+                lemma.setSite(mainSite);
                 lemma.setLemma(newLemma);
                 lemma.setFrequency(1);
             } else {
                 lemma.setFrequency(lemma.getFrequency() + 1);
             }
             lemmasRepository.save(lemma);
+            mainSite.addLemma(lemma);
+            sitesRepository.save(mainSite);
 
             Index index = new Index();
             index.setPage(page);
             index.setLemmaId(lemma.getId());
             index.setRank(mapLemmas.get(newLemma));
             indexesRepository.save(index);
+            page.addIndex(index);
+            pagesRepository.save(page);
+            System.out.println(page.getId() + ") " + page.getIndexes());
         }
     }
 

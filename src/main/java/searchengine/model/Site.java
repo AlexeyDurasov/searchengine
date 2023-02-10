@@ -8,12 +8,14 @@ import lombok.Setter;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
+import java.util.Set;
 
 @Setter
 @Getter
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
+@Table(name = "sites")
 public class Site {
     @Id
     //@GeneratedValue//(strategy = GenerationType.IDENTITY)
@@ -30,4 +32,16 @@ public class Site {
     private String url;
     @Column(columnDefinition = "VARCHAR(255)", nullable = false)
     private String name;
+    @OneToMany(mappedBy = "site")
+    private Set<Page> pages;
+    @OneToMany(mappedBy = "site")
+    private Set<Lemma> lemmas;
+
+    public void addPage(Page page) {
+        pages.add(page);
+    }
+
+    public void addLemma(Lemma lemma) {
+        lemmas.add(lemma);
+    }
 }

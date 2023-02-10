@@ -63,13 +63,23 @@ public class IndexingServiceImpl implements IndexingService{
     }
 
     private Site creatingSite(SiteConfig siteConfig, int index) {
-        Site site = new Site(
+        /*Site site1 = new Site(
                 index,
                 Status.INDEXING,
                 LocalDateTime.now(),
                 "lastError",
                 siteConfig.getUrl(),
-                siteConfig.getName());
+                siteConfig.getName(),
+                new HashSet<>(),
+                new HashSet<>());*/
+        Site site = new Site();
+        site.setId(index);
+        site.setStatus(Status.INDEXING);
+        site.setStatusTime(LocalDateTime.now());
+        site.setUrl(siteConfig.getUrl());
+        site.setName(siteConfig.getName());
+        site.setPages(new HashSet<>());
+        site.setLemmas(new HashSet<>());
         sitesRepository.save(site);
         return site;
     }
@@ -157,16 +167,17 @@ public class IndexingServiceImpl implements IndexingService{
                     page.setContent(Files.readString(Paths.get("D:/install/IntelliJ IDEA/ДЗ/из стрима.txt")));
                     page.setSite(site);
                     pagesRepository.save(page);
+                } else {
+                    page = pagesRepository.findByPathLinkAndSite(pathLink, site);
                 }
-                page = pagesRepository.findByPathLinkAndSite(pathLink, site);
                 CreatingMap creatingMap = new CreatingMap(site, url,
                         sitesRepository, pagesRepository,
                         indexesRepository, lemmasRepository);
-                if (page != null) {
+                /*if (page != null) {
                     String content = page.getContent();
                     creatingMap.deleteLemmasAndIndexes(content, page.getId());
-                    pagesRepository.delete(page);
-                }
+                    //pagesRepository.delete(page);
+                }*/
                 String content = pagesRepository.findByPathLink(url).getContent(); //connection.get().toString();
                 creatingMap.addNewURL(url, statusCode, content);
             } catch (IOException | InterruptedException e) {

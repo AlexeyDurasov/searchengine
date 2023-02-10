@@ -6,18 +6,21 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import javax.persistence.*;
+import java.io.Serializable;
 
 @Setter
 @Getter
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
-public class Lemma {
+@Table(name = "lemmas")
+public class Lemma implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
-    @Column(name = "site_id", nullable = false)
-    private int siteId;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "site_id", nullable = false)
+    private Site site;
     @Column(columnDefinition = "VARCHAR(255)", nullable = false)
     private String lemma;
     private int frequency;

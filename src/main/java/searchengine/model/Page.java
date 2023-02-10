@@ -15,7 +15,7 @@ import java.util.Set;
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(indexes = {@Index(name = "path_id", columnList = "path_link", unique = true)})
+@Table(name = "pages", indexes = {@Index(name = "path_id", columnList = "path_link", unique = true)})
 public class Page implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,11 +28,10 @@ public class Page implements Serializable {
     @ManyToOne(optional = false)
     @JoinColumn(name = "site_id", nullable = false)
     private Site site;
-    /*@OneToMany
-    @JoinColumn(name = "index_id", nullable = false)
-    Set<searchengine.model.Index> indexesSet;
+    @OneToMany(mappedBy = "page")
+    private Set<searchengine.model.Index> indexes;
 
     public void addIndex(searchengine.model.Index index) {
-        indexesSet.add(index);
-    }*/
+        indexes.add(index);
+    }
 }

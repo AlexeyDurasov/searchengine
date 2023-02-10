@@ -8,7 +8,15 @@ import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
+import searchengine.model.Site;
+import searchengine.repositories.IndexesRepository;
+import searchengine.repositories.LemmasRepository;
+import searchengine.repositories.PagesRepository;
+import searchengine.repositories.SitesRepository;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -19,6 +27,10 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     private final Random random = new Random();
     private final SitesList sites;
+    private final SitesRepository sitesRepository;
+    private final PagesRepository pagesRepository;
+    private final IndexesRepository indexesRepository;
+    private final LemmasRepository lemmasRepository;
 
     @Override
     public StatisticsResponse getStatistics() {
@@ -35,19 +47,21 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
         List<SiteConfig> sitesList = sites.getSites();
-        for(int i = 0; i < sitesList.size(); i++) {
-            SiteConfig site = sitesList.get(i);
+        for (SiteConfig site : sitesList) {
             DetailedStatisticsItem item = new DetailedStatisticsItem();
             item.setName(site.getName());
             item.setUrl(site.getUrl());
-            int pages = random.nextInt(1_000);
-            int lemmas = pages * random.nextInt(1_000);
+            Site siteRepo = sitesRepository.findByUrl(site.getUrl());
+            int pages = siteRepo.getPages().size();//random.nextInt(1_000);
+            int lemmas = siteRepo.getLemmas().size();//pages * random.nextInt(1_000);
             item.setPages(pages);
             item.setLemmas(lemmas);
-            item.setStatus(statuses[i % 3]);
-            item.setError(errors[i % 3]);
-            item.setStatusTime(System.currentTimeMillis() -
-                    (random.nextInt(10_000)));
+            item.setStatus(siteRepo.getStatus().toString()/*statuses[i % 3]*/);
+            item.setError(siteRepo.getLastError()/*errors[i % 3]*/);
+            LocalDateTime statusTime = siteRepo.getStatusTime();
+            Instant instant = statusTime.toInstant(ZoneOffset.UTC);
+            item.setStatusTime(instant.toEpochMilli()/*System.currentTimeMillis() -
+                    (random.nextInt(10_000))*/);
             total.setPages(total.getPages() + pages);
             total.setLemmas(total.getLemmas() + lemmas);
             detailed.add(item);

@@ -13,7 +13,7 @@ import java.io.Serializable;
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "search_index")
+@Table(name = "indexes")
 public class Index implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
