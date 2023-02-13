@@ -7,9 +7,7 @@ import org.springframework.stereotype.Service;
 import searchengine.config.SiteConfig;
 import searchengine.config.SitesList;
 import searchengine.dto.indexing.IndexingResponse;
-import searchengine.model.Page;
-import searchengine.model.Site;
-import searchengine.model.Status;
+import searchengine.model.*;
 import searchengine.repositories.*;
 
 import java.io.IOException;
@@ -56,22 +54,14 @@ public class IndexingServiceImpl implements IndexingService{
     }
 
     private void clearingDB() {
-        sitesRepository.deleteAll();
-        pagesRepository.deleteAll();
-        indexesRepository.deleteAll();
         lemmasRepository.deleteAll();
+        /*indexesRepository.deleteAll();
+        pagesRepository.deleteAll();*/
+        sitesRepository.deleteAll();
     }
 
-    private Site creatingSite(SiteConfig siteConfig, int index) {
-        /*Site site1 = new Site(
-                index,
-                Status.INDEXING,
-                LocalDateTime.now(),
-                "lastError",
-                siteConfig.getUrl(),
-                siteConfig.getName(),
-                new HashSet<>(),
-                new HashSet<>());*/
+    @Override
+    public Site creatingSite(SiteConfig siteConfig, int index) {
         Site site = new Site();
         site.setId(index);
         site.setStatus(Status.INDEXING);
@@ -154,36 +144,52 @@ public class IndexingServiceImpl implements IndexingService{
     private void indexingPage(SiteConfig siteConfig, String url, int statusCode) {
         Thread thread = new Thread(() -> {
             try {
-                for (Thread threadSite : threads) {
+                /*for (Thread threadSite : threads) {
                     threadSite.join();
-                }
+                }*/
                 Site site = sitesRepository.findByUrl(siteConfig.getUrl());
                 Page page = new Page();
                 String pathLink = url.substring(siteConfig.getUrl().length() - 1);
                 if (site == null) {
-                    site = creatingSite(siteConfig, (int)sitesRepository.count() + 1);
-                    page.setPathLink(url);
-                    page.setCode(statusCode);
-                    page.setContent(Files.readString(Paths.get("D:/install/IntelliJ IDEA/ДЗ/из стрима.txt")));
-                    page.setSite(site);
-                    pagesRepository.save(page);
-                } else {
-                    page = pagesRepository.findByPathLinkAndSite(pathLink, site);
+                    site = creatingSite(siteConfig, 2/*(int)sitesRepository.count() + 1*/);
+                }
+                /*page.setPathLink(url);
+                page.setCode(statusCode);
+                page.setContent(Files.readString(Paths.get("G:/install/IntelliJ IDEA/ДЗ/из стрима.txt")));
+                page.setSite(site);
+                pagesRepository.save(page);*/
+                page = pagesRepository.findByPathLinkAndSite(pathLink, site);
+                if (page != null) {
+                    String content = page.getContent();
+                    deleteLemmas(content);
+                    pagesRepository.delete(page);
                 }
                 CreatingMap creatingMap = new CreatingMap(site, url,
                         sitesRepository, pagesRepository,
                         indexesRepository, lemmasRepository);
-                /*if (page != null) {
-                    String content = page.getContent();
-                    creatingMap.deleteLemmasAndIndexes(content, page.getId());
-                    //pagesRepository.delete(page);
-                }*/
                 String content = pagesRepository.findByPathLink(url).getContent(); //connection.get().toString();
                 creatingMap.addNewURL(url, statusCode, content);
-            } catch (IOException | InterruptedException e) {
+            } catch (IOException/* | InterruptedException*/ e) {
                 throw new RuntimeException(e);
             }
         });
         thread.start();
+    }
+
+    private void deleteLemmas(String content) throws IOException {
+        LemmaFinder creatingLemmas = LemmaFinder.getInstance();
+        Map<String, Integer> mapLemmas = new HashMap<>(creatingLemmas.collectLemmas(content));
+        Set<String> setLemmas = new HashSet<>(mapLemmas.keySet());
+        for (String newLemma : setLemmas) {
+            Lemma lemma = lemmasRepository.findByLemma(newLemma);
+            if (lemma != null) {
+                if (lemma.getFrequency() == 1) {
+                    lemmasRepository.delete(lemma);
+                } else {
+                    lemma.setFrequency(lemma.getFrequency() - 1);
+                    lemmasRepository.save(lemma);
+                }
+            }
+        }
     }
 }

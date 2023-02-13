@@ -32,16 +32,16 @@ public class Site {
     private String url;
     @Column(columnDefinition = "VARCHAR(255)", nullable = false)
     private String name;
-    @OneToMany(mappedBy = "site")
+    @OneToMany(mappedBy = "site", cascade = CascadeType.ALL)
     private Set<Page> pages;
     @OneToMany(mappedBy = "site")
     private Set<Lemma> lemmas;
 
-    public void addPage(Page page) {
+    /*public void addPage(Page page) {
         pages.add(page);
     }
 
     public void addLemma(Lemma lemma) {
         lemmas.add(lemma);
-    }
+    }*/
 }

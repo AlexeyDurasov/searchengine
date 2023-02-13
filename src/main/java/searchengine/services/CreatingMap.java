@@ -6,7 +6,6 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.Index;
 import searchengine.model.Lemma;
 import searchengine.model.Page;
@@ -103,7 +102,6 @@ public class CreatingMap extends RecursiveAction {
             page.setSite(mainSite);
             page.setIndexes(new HashSet<>());
             pagesRepository.save(page);
-            mainSite.addPage(page);
             mainSite.setStatusTime(LocalDateTime.now());
             sitesRepository.save(mainSite);
             if (statusCode < 400) {
@@ -129,36 +127,12 @@ public class CreatingMap extends RecursiveAction {
                 lemma.setFrequency(lemma.getFrequency() + 1);
             }
             lemmasRepository.save(lemma);
-            mainSite.addLemma(lemma);
-            sitesRepository.save(mainSite);
 
             Index index = new Index();
             index.setPage(page);
             index.setLemmaId(lemma.getId());
             index.setRank(mapLemmas.get(newLemma));
             indexesRepository.save(index);
-            page.addIndex(index);
-            pagesRepository.save(page);
-            System.out.println(page.getId() + ") " + page.getIndexes());
         }
-    }
-
-    public void deleteLemmasAndIndexes(String content, int pageId) throws IOException {
-        LemmaFinder creatingLemmas = LemmaFinder.getInstance();
-        Map<String, Integer> mapLemmas = new HashMap<>(creatingLemmas.collectLemmas(content));
-        Set<String> setLemmas = new HashSet<>(mapLemmas.keySet());
-        for (String newLemma : setLemmas) {
-            Lemma lemma = lemmasRepository.findByLemma(newLemma);
-            if (lemma != null) {
-                if (lemma.getFrequency() == 1) {
-                    lemmasRepository.delete(lemma);
-                } else {
-                    lemma.setFrequency(lemma.getFrequency() - 1);
-                    lemmasRepository.save(lemma);
-                }
-            }
-        }
-        Iterable<Index> indexIterable = indexesRepository.findAllByPageId(pageId);
-        indexesRepository.deleteAll(indexIterable);
     }
 }

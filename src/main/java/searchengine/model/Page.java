@@ -25,13 +25,9 @@ public class Page implements Serializable {
     private int code;
     @Column(columnDefinition = "MEDIUMTEXT", nullable = false)
     private String content;
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "site_id", nullable = false)
     private Site site;
-    @OneToMany(mappedBy = "page")
+    @OneToMany(mappedBy = "page", cascade = CascadeType.ALL)
     private Set<searchengine.model.Index> indexes;
-
-    public void addIndex(searchengine.model.Index index) {
-        indexes.add(index);
-    }
 }

@@ -28,9 +28,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final Random random = new Random();
     private final SitesList sites;
     private final SitesRepository sitesRepository;
-    private final PagesRepository pagesRepository;
-    private final IndexesRepository indexesRepository;
-    private final LemmasRepository lemmasRepository;
+    private final IndexingService indexingService;
 
     @Override
     public StatisticsResponse getStatistics() {
@@ -47,11 +45,13 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
         List<SiteConfig> sitesList = sites.getSites();
+        int i = 1;
         for (SiteConfig site : sitesList) {
             DetailedStatisticsItem item = new DetailedStatisticsItem();
             item.setName(site.getName());
             item.setUrl(site.getUrl());
             Site siteRepo = sitesRepository.findByUrl(site.getUrl());
+            //Site siteRepo = indexingService.creatingSite(site, i);
             int pages = siteRepo.getPages().size();//random.nextInt(1_000);
             int lemmas = siteRepo.getLemmas().size();//pages * random.nextInt(1_000);
             item.setPages(pages);
@@ -59,12 +59,13 @@ public class StatisticsServiceImpl implements StatisticsService {
             item.setStatus(siteRepo.getStatus().toString()/*statuses[i % 3]*/);
             item.setError(siteRepo.getLastError()/*errors[i % 3]*/);
             LocalDateTime statusTime = siteRepo.getStatusTime();
-            Instant instant = statusTime.toInstant(ZoneOffset.UTC);
+            Instant instant = statusTime.toInstant(ZoneOffset.of("+03:00"));
             item.setStatusTime(instant.toEpochMilli()/*System.currentTimeMillis() -
                     (random.nextInt(10_000))*/);
             total.setPages(total.getPages() + pages);
             total.setLemmas(total.getLemmas() + lemmas);
             detailed.add(item);
+            ++i;
         }
 
         StatisticsResponse response = new StatisticsResponse();
