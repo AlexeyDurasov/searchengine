@@ -28,7 +28,7 @@ public class ApiController {
     }
 
     @GetMapping("/startIndexing")
-    public ResponseEntity<IndexingResponse> startIndexing() throws InterruptedException, IOException {
+    public ResponseEntity<IndexingResponse> startIndexing() {
         return ResponseEntity.ok(indexingService.getStartIndexing());
     }
 
@@ -38,7 +38,7 @@ public class ApiController {
     }
 
     @PostMapping("/indexPage")
-    public ResponseEntity<IndexingResponse> indexPage(String url) throws IOException {
+    public ResponseEntity<IndexingResponse> indexPage(String url) {
         return ResponseEntity.ok(indexingService.getIndexingPage(url));
     }
 }

@@ -6,6 +6,10 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
+import searchengine.config.Connect;
 import searchengine.model.Index;
 import searchengine.model.Lemma;
 import searchengine.model.Page;
@@ -21,29 +25,37 @@ import java.util.*;
 import java.util.concurrent.RecursiveAction;
 
 @RequiredArgsConstructor
-public class CreatingMap extends RecursiveAction {
+public class CreatingMapServiceImpl extends RecursiveAction implements CreatingMapService {
 
+    //private final IndexingService indexingService;
     private final Site mainSite;
     private final String root;
+    private final Connect connect;
     private final SitesRepository sitesRepository;
     private final PagesRepository pagesRepository;
     private final IndexesRepository indexesRepository;
     private final LemmasRepository lemmasRepository;
 
+    /*public CreatingMapServiceImpl(Site mainSite, String root, IndexingService indexingService) {
+        this.mainSite = mainSite;
+        this.root = root;
+        this.indexingService = indexingService;
+    }*/
+
     @Override
     protected void compute() {
-        Set<CreatingMap> tasks = new HashSet<>();
+        Set<CreatingMapServiceImpl> tasks = new HashSet<>();
         Set<String> pageLinks = parsePage(root);
         for (String link : pageLinks) {
-            CreatingMap creatingMap = new CreatingMap(mainSite,
-                    link, sitesRepository, pagesRepository,
+            CreatingMapServiceImpl creatingMapServiceImpl = new CreatingMapServiceImpl(
+                    mainSite, link, connect, sitesRepository, pagesRepository,
                     indexesRepository, lemmasRepository);
-            tasks.add(creatingMap);
+            tasks.add(creatingMapServiceImpl);
         }
-        for (CreatingMap task : tasks) {
+        for (CreatingMapServiceImpl task : tasks) {
             task.fork();
         }
-        for (CreatingMap task : tasks) {
+        for (CreatingMapServiceImpl task : tasks) {
             task.join();
         }
     }
@@ -54,14 +66,16 @@ public class CreatingMap extends RecursiveAction {
         Set<String> links = new HashSet<>();
         try {
             if (checkURL(url)) {
-                Connection connection = Jsoup.connect(url).maxBodySize(0);
+                Connection connection = Jsoup.connect(url).userAgent(connect.getUserAgent())
+                        .referrer(connect.getReferrer()).maxBodySize(0);
                 Document doc = connection.get();
                 Elements elements = doc.select("a[href]");
                 for (Element element : elements) {
                     String link = element.absUrl("href");
                     if (checkURL(link)) {
                         Thread.sleep(200);
-                        connection = Jsoup.connect(link).maxBodySize(0);
+                        connection = Jsoup.connect(link).userAgent(connect.getUserAgent())
+                                .referrer(connect.getReferrer()).maxBodySize(0);
                         String content = connection.get().toString();
                         int statusCode = connection.execute().statusCode();
                         if (addNewURL(link, statusCode, content)) {
@@ -133,6 +147,23 @@ public class CreatingMap extends RecursiveAction {
             index.setLemmaId(lemma.getId());
             index.setRank(mapLemmas.get(newLemma));
             indexesRepository.save(index);
+        }
+    }
+
+    public void deleteLemmas(String content) throws IOException {
+        LemmaFinder creatingLemmas = LemmaFinder.getInstance();
+        Map<String, Integer> mapLemmas = new HashMap<>(creatingLemmas.collectLemmas(content));
+        Set<String> setLemmas = new HashSet<>(mapLemmas.keySet());
+        for (String newLemma : setLemmas) {
+            Lemma lemma = lemmasRepository.findByLemma(newLemma);
+            if (lemma != null) {
+                if (lemma.getFrequency() == 1) {
+                    lemmasRepository.delete(lemma);
+                } else {
+                    lemma.setFrequency(lemma.getFrequency() - 1);
+                    lemmasRepository.save(lemma);
+                }
+            }
         }
     }
 }

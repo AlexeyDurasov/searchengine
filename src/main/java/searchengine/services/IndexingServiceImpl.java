@@ -1,9 +1,9 @@
 package searchengine.services;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.jsoup.Connection;
-import org.jsoup.Jsoup;
 import org.springframework.stereotype.Service;
+import searchengine.config.Connect;
 import searchengine.config.SiteConfig;
 import searchengine.config.SitesList;
 import searchengine.dto.indexing.IndexingResponse;
@@ -22,6 +22,7 @@ import java.util.concurrent.ForkJoinPool;
 public class IndexingServiceImpl implements IndexingService{
 
     private final SitesList sites;
+    private final Connect connect;
     private final SitesRepository sitesRepository;
     private final PagesRepository pagesRepository;
     private final IndexesRepository indexesRepository;
@@ -31,18 +32,9 @@ public class IndexingServiceImpl implements IndexingService{
 
     @Override
     public IndexingResponse getStartIndexing() {
-        int countIndexingSites = 0;
-        for (Site site : sitesRepository.findAll()) {
-            if (site.getStatus().equals(Status.INDEXING)) {
-                ++countIndexingSites;
-                break;
-            }
-        }
-        if (countIndexingSites == 0) {
-            clearingDB();
-            for (int index = 0; index < sites.getSites().size(); index++) {
-                creatingSite(sites.getSites().get(index), index + 1);
-            }
+        if (threads.size() == 0) {
+            lemmasRepository.deleteAll();
+            sitesRepository.deleteAll();
             startIndexing();
             indexingResponse.setResult(true);
             indexingResponse.setError(null);
@@ -53,18 +45,10 @@ public class IndexingServiceImpl implements IndexingService{
         return indexingResponse;
     }
 
-    private void clearingDB() {
-        lemmasRepository.deleteAll();
-        /*indexesRepository.deleteAll();
-        pagesRepository.deleteAll();*/
-        sitesRepository.deleteAll();
-    }
-
     @Override
-    public Site creatingSite(SiteConfig siteConfig, int index) {
+    public Site creatingSite(SiteConfig siteConfig, Status status) {
         Site site = new Site();
-        site.setId(index);
-        site.setStatus(Status.INDEXING);
+        site.setStatus(status);
         site.setStatusTime(LocalDateTime.now());
         site.setUrl(siteConfig.getUrl());
         site.setName(siteConfig.getName());
@@ -75,38 +59,50 @@ public class IndexingServiceImpl implements IndexingService{
     }
 
     private void startIndexing() {
-        long countSites = sitesRepository.count();
-        for (int i = 1; i <= countSites; i++) {
-            int finalI = i;
-            threads.add(new Thread(()-> {
-                Site site = sitesRepository.findById(finalI).get();
-                CreatingMap creatingMap = new CreatingMap(site, site.getUrl(),
+        for (int index = 0; index < sites.getSites().size(); index++) {
+            Site site = creatingSite(sites.getSites().get(index), Status.INDEXING);
+            Thread thread = new Thread(()-> {
+                /*CreatingMapServiceImpl creatingMap = new CreatingMapServiceImpl(
+                        site, site.getUrl(), connect,
                         sitesRepository, pagesRepository,
                         indexesRepository, lemmasRepository);
                 ForkJoinPool forkJoinPool = new ForkJoinPool();
                 forkJoinPool.invoke(creatingMap);
-                site = sitesRepository.findById(finalI).get();
                 site.setStatus(Status.INDEXED);
-                sitesRepository.save(site);
-            }));
+                sitesRepository.save(site);*/
+                String url = site.getUrl();
+                Status status = site.getStatus();
+                if (url.equals("https://skillbox.ru/")) {
+                    while (status.equals(Status.INDEXING)) {
+                        System.out.println("sleep " + Thread.currentThread().getName());
+                        for (int i = 1; i > 0; i++);
+                        status = sitesRepository.findByUrl(url).getStatus();
+                    }
+                }
+                if (!Thread.currentThread().isInterrupted()) {
+                    site.setStatus(Status.INDEXED);
+                    sitesRepository.save(site);
+                }
+            });
+            thread.setName(site.getUrl());
+            threads.add(thread);
         }
         threads.forEach(Thread::start);
     }
 
     @Override
     public IndexingResponse getStopIndexing() {
-        int countIndexingSites = 0;
-        for (Site site : sitesRepository.findAll()) {
-            if (site.getStatus().equals(Status.INDEXING)) {
-                threads.get(site.getId() - 1).interrupt();
-                site.setLastError("Индексация остановлена пользователем");
-                site.setStatus(Status.FAILED);
-                sitesRepository.save(site);
-                ++countIndexingSites;
+        if (threads.size() > 0) {
+            for (Thread thread : threads) {
+                thread.interrupt();
+                Site site = sitesRepository.findByUrl(thread.getName());
+                if (site.getStatus().equals(Status.INDEXING)) {
+                    site.setLastError("Индексация остановлена пользователем");
+                    site.setStatus(Status.FAILED);
+                    sitesRepository.save(site);
+                }
             }
-        }
-        threads.clear();
-        if (countIndexingSites > 0) {
+            threads.clear();
             indexingResponse.setResult(true);
             indexingResponse.setError(null);
         } else {
@@ -122,10 +118,12 @@ public class IndexingServiceImpl implements IndexingService{
         for (SiteConfig siteConfig : sites.getSites()) {
             if (url.contains(siteConfig.getUrl())) {
                 indexingPage = true;
-                //Connection connection = Jsoup.connect(url).maxBodySize(0);
+                //Connection connection = Jsoup.connect(url).userAgent(connect.getUserAgent())
+                //        .referrer(connect.getReferrer()).maxBodySize(0);
                 int statusCode = 200;//connection.execute().statusCode();
                 if (statusCode < 400) {
-                    indexingPage(siteConfig, url, statusCode);
+                    //String content = connection.get().toString();
+                    indexingPage(siteConfig, url, statusCode/*, content*/);
                 }
                 break;
             }
@@ -141,55 +139,42 @@ public class IndexingServiceImpl implements IndexingService{
         return indexingResponse;
     }
 
-    private void indexingPage(SiteConfig siteConfig, String url, int statusCode) {
+    private void indexingPage(SiteConfig siteConfig, String url, int statusCode/*, String content*/) {
         Thread thread = new Thread(() -> {
             try {
-                /*for (Thread threadSite : threads) {
-                    threadSite.join();
-                }*/
                 Site site = sitesRepository.findByUrl(siteConfig.getUrl());
                 Page page = new Page();
                 String pathLink = url.substring(siteConfig.getUrl().length() - 1);
+                boolean newPage = false;
                 if (site == null) {
-                    site = creatingSite(siteConfig, 2/*(int)sitesRepository.count() + 1*/);
+                    site = creatingSite(siteConfig, Status.FAILED);
+                    page.setPathLink(url);
+                    page.setCode(statusCode);
+                    page.setContent(/*content*/
+                            Files.readString(Paths.get("D:/install/IntelliJ IDEA/ДЗ/из стрима.txt")));
+                    page.setSite(site);
+                    page.setIndexes(new HashSet<>());
+                    pagesRepository.save(page);
+                    newPage = true;
                 }
-                /*page.setPathLink(url);
-                page.setCode(statusCode);
-                page.setContent(Files.readString(Paths.get("G:/install/IntelliJ IDEA/ДЗ/из стрима.txt")));
-                page.setSite(site);
-                pagesRepository.save(page);*/
-                page = pagesRepository.findByPathLinkAndSite(pathLink, site);
-                if (page != null) {
-                    String content = page.getContent();
-                    deleteLemmas(content);
-                    pagesRepository.delete(page);
-                }
-                CreatingMap creatingMap = new CreatingMap(site, url,
+                CreatingMapServiceImpl creatingMapServiceImpl = new CreatingMapServiceImpl(
+                        site, url, connect,
                         sitesRepository, pagesRepository,
                         indexesRepository, lemmasRepository);
+                page = pagesRepository.findByPathLinkAndSite(pathLink, site);
+                if (page != null && !newPage) {
+                    String content = page.getContent();
+                    creatingMapServiceImpl.deleteLemmas(content);
+                    pagesRepository.delete(page);
+                }
                 String content = pagesRepository.findByPathLink(url).getContent(); //connection.get().toString();
-                creatingMap.addNewURL(url, statusCode, content);
-            } catch (IOException/* | InterruptedException*/ e) {
+                creatingMapServiceImpl.addNewURL(url, statusCode, content);
+            } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
+        thread.setName(url);
+        threads.add(thread);
         thread.start();
-    }
-
-    private void deleteLemmas(String content) throws IOException {
-        LemmaFinder creatingLemmas = LemmaFinder.getInstance();
-        Map<String, Integer> mapLemmas = new HashMap<>(creatingLemmas.collectLemmas(content));
-        Set<String> setLemmas = new HashSet<>(mapLemmas.keySet());
-        for (String newLemma : setLemmas) {
-            Lemma lemma = lemmasRepository.findByLemma(newLemma);
-            if (lemma != null) {
-                if (lemma.getFrequency() == 1) {
-                    lemmasRepository.delete(lemma);
-                } else {
-                    lemma.setFrequency(lemma.getFrequency() - 1);
-                    lemmasRepository.save(lemma);
-                }
-            }
-        }
     }
 }

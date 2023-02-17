@@ -18,7 +18,7 @@ import java.util.Set;
 @Table(name = "sites")
 public class Site {
     @Id
-    //@GeneratedValue//(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
     @Enumerated(EnumType.STRING)
     @Column(columnDefinition = "ENUM('INDEXING', 'INDEXED', 'FAILED')", nullable = false)
@@ -36,12 +36,4 @@ public class Site {
     private Set<Page> pages;
     @OneToMany(mappedBy = "site")
     private Set<Lemma> lemmas;
-
-    /*public void addPage(Page page) {
-        pages.add(page);
-    }
-
-    public void addLemma(Lemma lemma) {
-        lemmas.add(lemma);
-    }*/
 }
