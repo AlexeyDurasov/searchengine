@@ -22,7 +22,7 @@ public class LemmaFinder {
         this.luceneMorphology = luceneMorphology;
     }
 
-    private LemmaFinder(){
+    LemmaFinder(){
         throw new RuntimeException("Disallow construct");
     }
     /**

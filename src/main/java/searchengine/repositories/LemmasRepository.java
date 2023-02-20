@@ -8,6 +8,4 @@ import searchengine.model.Lemma;
 public interface LemmasRepository extends CrudRepository<Lemma, Integer> {
 
     Lemma findByLemma(String lemma);
-
-    //Lemma findLastLemma();
 }

@@ -7,5 +7,5 @@ import searchengine.model.Index;
 @Repository
 public interface IndexesRepository extends CrudRepository<Index, Integer> {
 
-    Iterable<Index> findAllByPageId(int pageId);
+    Iterable<Index> findAllByLemmaId(int lemmaId);
 }

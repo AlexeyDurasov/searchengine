@@ -9,7 +9,7 @@ import searchengine.model.Site;
 @RequiredArgsConstructor
 public class Transactions {
 
-    private final SitesRepository sitesRepository;
+    /*private final SitesRepository sitesRepository;
     private final PagesRepository pagesRepository;
     private final LemmasRepository lemmasRepository;
 
@@ -27,5 +27,5 @@ public class Transactions {
 
     public Lemma findByLemma(String lemma) {
         return lemmasRepository.findByLemma(lemma);
-    }
+    }*/
 }
