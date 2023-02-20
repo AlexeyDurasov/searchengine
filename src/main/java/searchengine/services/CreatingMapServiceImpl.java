@@ -6,9 +6,6 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
 import searchengine.config.Connect;
 import searchengine.model.Index;
 import searchengine.model.Lemma;
@@ -97,7 +94,7 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
     }
 
     private boolean checkURL(String url) {
-        return url.startsWith(mainSite.getUrl()) && url.endsWith("/");
+        return url.startsWith(mainSite.getUrl()) && (url.endsWith("/") || url.endsWith(".html"));
     }
 
     public synchronized boolean addNewURL(String url, int statusCode, String content) throws IOException {

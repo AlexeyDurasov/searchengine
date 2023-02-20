@@ -1,6 +1,5 @@
 package searchengine.services;
 
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import searchengine.config.Connect;
@@ -61,16 +60,17 @@ public class IndexingServiceImpl implements IndexingService{
     private void startIndexing() {
         for (int index = 0; index < sites.getSites().size(); index++) {
             Site site = creatingSite(sites.getSites().get(index), Status.INDEXING);
-            Thread thread = new Thread(()-> {
-                /*CreatingMapServiceImpl creatingMap = new CreatingMapServiceImpl(
-                        site, site.getUrl(), connect,
-                        sitesRepository, pagesRepository,
-                        indexesRepository, lemmasRepository);
-                ForkJoinPool forkJoinPool = new ForkJoinPool();
-                forkJoinPool.invoke(creatingMap);
-                site.setStatus(Status.INDEXED);
-                sitesRepository.save(site);*/
-                String url = site.getUrl();
+            if (site.getUrl().equals("https://www.playback.ru/")) {
+                Thread thread = new Thread(() -> {
+                    CreatingMapServiceImpl creatingMap = new CreatingMapServiceImpl(
+                            site, site.getUrl(), connect,
+                            sitesRepository, pagesRepository,
+                            indexesRepository, lemmasRepository);
+                    ForkJoinPool forkJoinPool = new ForkJoinPool();
+                    forkJoinPool.invoke(creatingMap);
+                    site.setStatus(Status.INDEXED);
+                    sitesRepository.save(site);
+                /*String url = site.getUrl();
                 Status status = site.getStatus();
                 if (url.equals("https://skillbox.ru/")) {
                     while (status.equals(Status.INDEXING)) {
@@ -82,10 +82,11 @@ public class IndexingServiceImpl implements IndexingService{
                 if (!Thread.currentThread().isInterrupted()) {
                     site.setStatus(Status.INDEXED);
                     sitesRepository.save(site);
-                }
-            });
-            thread.setName(site.getUrl());
-            threads.add(thread);
+                }*/
+                });
+                thread.setName(site.getUrl());
+                threads.add(thread);
+            }
         }
         threads.forEach(Thread::start);
     }
