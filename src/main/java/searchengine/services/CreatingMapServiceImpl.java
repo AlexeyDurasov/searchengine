@@ -128,7 +128,7 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
         Map<String, Integer> mapLemmas = new HashMap<>(creatingLemmas.collectLemmas(content));
         Set<String> setLemmas = new HashSet<>(mapLemmas.keySet());
         for (String newLemma : setLemmas) {
-            Lemma lemma = lemmasRepository.findByLemma(newLemma);
+            Lemma lemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
             if (lemma == null) {
                 lemma = new Lemma();
                 lemma.setSite(mainSite);
@@ -152,7 +152,7 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
         Map<String, Integer> mapLemmas = new HashMap<>(creatingLemmas.collectLemmas(content));
         Set<String> setLemmas = new HashSet<>(mapLemmas.keySet());
         for (String newLemma : setLemmas) {
-            Lemma lemma = lemmasRepository.findByLemma(newLemma);
+            Lemma lemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
             if (lemma != null) {
                 if (lemma.getFrequency() == 1) {
                     lemmasRepository.delete(lemma);

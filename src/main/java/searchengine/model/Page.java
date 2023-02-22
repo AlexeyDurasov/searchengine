@@ -26,7 +26,7 @@ public class Page implements Serializable {
     private int code;
     @Column(columnDefinition = "MEDIUMTEXT", nullable = false)
     private String content;
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @ManyToOne(optional = false)
     @JoinColumn(name = "site_id", nullable = false)
     private Site site;
     @OneToMany(mappedBy = "page", cascade = CascadeType.ALL)

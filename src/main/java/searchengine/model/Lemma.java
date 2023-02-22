@@ -18,7 +18,7 @@ public class Lemma implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @ManyToOne(optional = false)
     @JoinColumn(name = "site_id", nullable = false)
     private Site site;
     @Column(columnDefinition = "VARCHAR(255)", nullable = false)

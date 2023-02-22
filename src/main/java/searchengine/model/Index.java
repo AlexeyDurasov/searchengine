@@ -22,7 +22,7 @@ public class Index implements Serializable {
     private int lemmaId;
     @Column(name = "search_rank", nullable = false)
     private float rank;
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @ManyToOne(optional = false)
     @JoinColumn(name = "page_id", nullable = false)
     private Page page;
 }
