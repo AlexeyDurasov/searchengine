@@ -204,62 +204,24 @@ public class SearchServiceImpl implements SearchService {
         searchResponse.setSearchData(searchDataList);
         return searchResponse;
     }
-/*
-    У нас есть запрос (который ввел пользователь) и нормализованный код страницы (убраны лишние html теги).
-    Формируем леммы из слов со страницы, сразу здесь же можно сформировать мапу, где ключами будут леммы,
-    а значениями слова. Далее формируем леммы из текста запроса.
-    После получения лемм формируем текстовое значение, в котором выделяем жирным текстом найденные леммы.
-*/
+
     private String snippet(String inText) {
         String[] text = creatingLemmas.arrayContainsRussianWords(inText);
         StringBuilder snippet = new StringBuilder();
-        lemmaWordMap = new HashMap<>();
-        List<String> tList = new ArrayList<>();
-
-        for (String word : text) {
-            List<String> wordBaseForms = creatingLemmas.getLuceneMorphology().getMorphInfo(word);
-            if (creatingLemmas.anyWordBaseBelongToParticle(wordBaseForms)) {
-                continue;
-            }
-            List<String> normalForms = creatingLemmas.getLuceneMorphology().getNormalForms(word);
-            if (normalForms.isEmpty()) {
-                continue;
-            }
-
-            String lemma = normalForms.get(0);
-            tList.add(lemma);
-            lemmaWordMap.put(lemma, word);
-        }
-        Map<String, Integer> lemmasMap = new LinkedHashMap<>(creatingLemmas.collectLemmas(queryStr));
-        Set<String> lemmasSet = new LinkedHashSet<>(lemmasMap.keySet());
-        List<String> qList = new ArrayList<>(lemmasSet);
-
+        List<String> tList = new ArrayList<>(Arrays.asList(text));
         List<Integer> foundsWordsIndexes = new ArrayList<>();
-        tList = createListFromText(tList, qList, foundsWordsIndexes);
-
-        if (foundsWordsIndexes.isEmpty()) {
-            if (inText.length() < 200) {
-                return inText;
-            }
-            return null;
-        }
-
+        tList = createListFromText(tList, foundsWordsIndexes);
         for (String tWord : tList) {
-            snippet.append(lemmaWordMap.get(tWord)).append(" ");
+            snippet.append(tWord).append(" ");
         }
         return snippet.toString();
     }
 
-    private List<String> createListFromText(List<String> tList, List<String> qList,
-                                            List<Integer> foundsWordsIndexes) {
-        for (String qWord : qList) {
-            if (!tList.contains(qWord)) {
-                continue;
-            }
+    private List<String> createListFromText(List<String> tList, List<Integer> foundsWordsIndexes) {
+        for (String qWord : queryStr.trim().split("\\s+")) {
 
             int indexOf = tList.indexOf(qWord);
-            String wordInText = lemmaWordMap.get(qWord);
-            lemmaWordMap.replace(qWord, wordInText, "<b>" + wordInText + "</b>");
+            tList.set(indexOf, "<b>" + qWord + "</b>");
             foundsWordsIndexes.add(indexOf);
 
             if (tList.size() <= 30) {
