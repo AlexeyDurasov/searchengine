@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
+import searchengine.config.SitesList;
 import searchengine.dto.search.SearchData;
 import searchengine.dto.search.SearchResponse;
 import searchengine.model.*;
@@ -19,13 +20,21 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SearchServiceImpl implements SearchService {
 
+    private final SitesList sites;
     private final SitesRepository sitesRepository;
     private final PagesRepository pagesRepository;
     private final IndexesRepository indexesRepository;
     private final LemmasRepository lemmasRepository;
+    private Map<String, String> lemmaWordMap = new HashMap<>();
+    private LemmaFinder creatingLemmas;
+    private Map<String, Integer> queryLemmas;
+    private String site;
+    private String queryStr;
 
     @Override
-    public SearchResponse getSearch(String query, String site, int offset, int limit) {
+    public SearchResponse getSearch(String query, String siteSearch, int offset, int limit) {
+        site = siteSearch;
+        queryStr = query;
         SearchResponse searchResponse = new SearchResponse();
         if (site != null) {
             Site currentSite = sitesRepository.findByUrl(site);
@@ -34,29 +43,47 @@ public class SearchServiceImpl implements SearchService {
                 searchResponse.setError("Сайт " + site + " не проиндексирован или его нет в базе.");
                 return searchResponse;
             }
+        } else {
+            Iterable<Site> siteIterable = sitesRepository.findAll();
+            int siteIterableSize = 0;
+            for (Site siteRepo : siteIterable) {
+                if (!siteRepo.getStatus().equals(Status.INDEXED)) {
+                    searchResponse.setResult(false);
+                    searchResponse.setError("Сайт " + siteRepo.getUrl() + " не проиндексирован.");
+                    return searchResponse;
+                }
+                ++siteIterableSize;
+            }
+            if (siteIterableSize == 0) {
+                searchResponse.setResult(false);
+                searchResponse.setError("В базе нет ни одного сайта.");
+                return searchResponse;
+            }
+            if (siteIterableSize != sites.getSites().size()) {
+                searchResponse.setResult(false);
+                searchResponse.setError("Количество сайтов в базе не соответствует списку из конфигурации. Запустите индекссацию.");
+                return searchResponse;
+            }
         }
-        LemmaFinder creatingLemmas;
-        Map<String, Integer> lemmas;
         try {
             creatingLemmas = LemmaFinder.getInstance();
-            lemmas = new HashMap<>(creatingLemmas.collectLemmas(query));
+            queryLemmas = new LinkedHashMap<>(creatingLemmas.collectLemmas(query));
         } catch (Exception ex) {
             searchResponse.setResult(false);
             searchResponse.setError(ex.toString());
             return searchResponse;
         }
-        if (lemmas.size() == 0) {
+        if (queryLemmas.size() == 0) {
             searchResponse.setResult(false);
             searchResponse.setError("Задан пустой/неверный поисковый запрос. Допустимы только русские слова/буквы.");
             return searchResponse;
         }
-        Set<String> lemmasSet = new HashSet<>(lemmas.keySet());
-        Map<String, Integer> lemmasFrequency = searchLemmas(lemmasSet, site);
-        Map<String, Float> pagesRank = searchPages(lemmasFrequency, site);
-        return getResponse(pagesRank);
+        queryLemmas = searchLemmasAndSort();
+        return getResponse(searchPagesAndSort());
     }
 
-    private Map<String, Integer> searchLemmas(Set<String> lemmasSet, String site) {
+    private Map<String, Integer> searchLemmasAndSort() {
+        Set<String> lemmasSet = new HashSet<>(queryLemmas.keySet());
         Map<String, Integer> lemmasFrequency = new HashMap<>();
         for (String newLemma : lemmasSet) {
             Iterable<Lemma> lemmaIterable = lemmasRepository.findAllByLemma(newLemma);
@@ -84,8 +111,8 @@ public class SearchServiceImpl implements SearchService {
                 ));
     }
 
-    private Map<String, Float> searchPages(Map<String, Integer> lemmasFrequency, String site) {
-        Set<String> lemmasSet = new LinkedHashSet<>(lemmasFrequency.keySet());
+    private Map<String, Float> searchPagesAndSort() {
+        Set<String> lemmasSet = new LinkedHashSet<>(queryLemmas.keySet());
         Map<String, Float> pagesRank = new HashMap<>();
         boolean first = true;
         for (String newLemma : lemmasSet) {
@@ -100,6 +127,8 @@ public class SearchServiceImpl implements SearchService {
                     String link = page.getPathLink();
                     if (link.equals("/")) {
                         link = page.getSite().getUrl();
+                    } else {
+                        link = page.getSite().getUrl() + link.substring(1);
                     }
                     if (first) {
                         if (!pagesRank.containsKey(link)) {
@@ -108,7 +137,16 @@ public class SearchServiceImpl implements SearchService {
                             pagesRank.put(link, index.getRank() + pagesRank.get(link));
                         }
                     } else {
-                        pagesRank.remove(link);
+                        int firstLemma = 1;
+                        Map<String, Integer> pageMap = new HashMap<>(creatingLemmas.collectLemmas(page.getContent()));
+                        for (String eachLemma : lemmasSet) {
+                            if (firstLemma++ == 1) {
+                                continue;
+                            }
+                            if (!pageMap.containsKey(eachLemma)) {
+                                pagesRank.remove(link);
+                            }
+                        }
                     }
                 }
                 if (site != null) {
@@ -125,7 +163,6 @@ public class SearchServiceImpl implements SearchService {
     }
 
     private SearchResponse getResponse(Map<String, Float> pagesRank) {
-        Iterable<Site> siteIterable = sitesRepository.findAll();
         Set<String> pagesSet = new LinkedHashSet<>(pagesRank.keySet());
 
         SearchResponse searchResponse = new SearchResponse();
@@ -134,30 +171,30 @@ public class SearchServiceImpl implements SearchService {
 
         Float findMaxAbsolutRelevance = 0F;
         List<SearchData> searchDataList = new ArrayList<>();
-        for (String pathLink : pagesSet) {
-            findMaxAbsolutRelevance = pagesRank.get(pathLink);
-            Page page = null;
-            for (Site siteRepo : siteIterable) {
-                if (siteRepo.getUrl().equals(pathLink)) {
-                    pathLink = pathLink.substring(siteRepo.getUrl().length()-1);
-                    page = pagesRepository.findByPathLinkAndSite(pathLink, siteRepo);
+
+        for (String link : pagesSet) {
+            findMaxAbsolutRelevance = pagesRank.get(link);
+            int separationIndex = 0;
+            for (int i = 0; i < link.length(); i++) {
+                if (link.charAt(i) == '/')
+                    ++separationIndex;
+                if (separationIndex == 3) {
+                    separationIndex = i;
+                    break;
                 }
             }
-            if (page == null) {
-                page = pagesRepository.findByPathLink(pathLink);
-            }
+            String currentSite = link.substring(0, separationIndex);
+            String currentPage = link.substring(separationIndex);
+            Site siteRepo = sitesRepository.findByUrl(currentSite + "/");
+            Page page = pagesRepository.findByPathLinkAndSite(currentPage, siteRepo);
             SearchData searchData = new SearchData();
-            searchData.setSite(page.getSite().getUrl());
-            searchData.setSiteName(page.getSite().getName());
-            searchData.setUri(page.getPathLink());
-
+            searchData.setSite(currentSite);
+            searchData.setSiteName(siteRepo.getName());
+            searchData.setUri(currentPage);
             Document doc = Jsoup.parse(page.getContent());
             searchData.setTitle(doc.title());
-
-            //searchData.setSnippet();
-
+            searchData.setSnippet(snippet(page.getContent()));
             searchData.setRelevance(findMaxAbsolutRelevance);
-
             searchDataList.add(searchData);
         }
         for (SearchData searchData : searchDataList) {
@@ -167,6 +204,81 @@ public class SearchServiceImpl implements SearchService {
         searchResponse.setSearchData(searchDataList);
         return searchResponse;
     }
+/*
+    У нас есть запрос (который ввел пользователь) и нормализованный код страницы (убраны лишние html теги).
+    Формируем леммы из слов со страницы, сразу здесь же можно сформировать мапу, где ключами будут леммы,
+    а значениями слова. Далее формируем леммы из текста запроса.
+    После получения лемм формируем текстовое значение, в котором выделяем жирным текстом найденные леммы.
+*/
+    private String snippet(String inText) {
+        String[] text = creatingLemmas.arrayContainsRussianWords(inText);
+        StringBuilder snippet = new StringBuilder();
+        lemmaWordMap = new HashMap<>();
+        List<String> tList = new ArrayList<>();
 
+        for (String word : text) {
+            List<String> wordBaseForms = creatingLemmas.getLuceneMorphology().getMorphInfo(word);
+            if (creatingLemmas.anyWordBaseBelongToParticle(wordBaseForms)) {
+                continue;
+            }
+            List<String> normalForms = creatingLemmas.getLuceneMorphology().getNormalForms(word);
+            if (normalForms.isEmpty()) {
+                continue;
+            }
 
+            String lemma = normalForms.get(0);
+            tList.add(lemma);
+            lemmaWordMap.put(lemma, word);
+        }
+        Map<String, Integer> lemmasMap = new LinkedHashMap<>(creatingLemmas.collectLemmas(queryStr));
+        Set<String> lemmasSet = new LinkedHashSet<>(lemmasMap.keySet());
+        List<String> qList = new ArrayList<>(lemmasSet);
+
+        List<Integer> foundsWordsIndexes = new ArrayList<>();
+        tList = createListFromText(tList, qList, foundsWordsIndexes);
+
+        if (foundsWordsIndexes.isEmpty()) {
+            if (inText.length() < 200) {
+                return inText;
+            }
+            return null;
+        }
+
+        for (String tWord : tList) {
+            snippet.append(lemmaWordMap.get(tWord)).append(" ");
+        }
+        return snippet.toString();
+    }
+
+    private List<String> createListFromText(List<String> tList, List<String> qList,
+                                            List<Integer> foundsWordsIndexes) {
+        for (String qWord : qList) {
+            if (!tList.contains(qWord)) {
+                continue;
+            }
+
+            int indexOf = tList.indexOf(qWord);
+            String wordInText = lemmaWordMap.get(qWord);
+            lemmaWordMap.replace(qWord, wordInText, "<b>" + wordInText + "</b>");
+            foundsWordsIndexes.add(indexOf);
+
+            if (tList.size() <= 30) {
+                continue;
+            }
+
+            int startSL = indexOf < 10 ? indexOf : indexOf - 10;
+            int endSL = startSL;
+
+            if (startSL + 30 <= tList.size()) {
+                endSL = startSL + 30;
+            } else if (startSL + 20 <= tList.size()) {
+                endSL =  startSL + 20;
+            } else if (startSL + 10 <= tList.size()) {
+                endSL = startSL + 10;
+            }
+
+            tList = tList.subList(startSL, endSL);
+        }
+        return tList;
+    }
 }

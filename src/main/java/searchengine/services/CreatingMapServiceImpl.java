@@ -99,12 +99,7 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
 
     public synchronized boolean addNewURL(String url, int statusCode, String content) throws IOException {
         String pathLink = url.substring(mainSite.getUrl().length()-1);
-        Page page;
-        if (pathLink.equals("/")) {
-            page = pagesRepository.findByPathLinkAndSite(pathLink, mainSite);
-        } else {
-            page = pagesRepository.findByPathLink(pathLink);
-        }
+        Page page = pagesRepository.findByPathLinkAndSite(pathLink, mainSite);
         if(page == null) {
             page = new Page();
             page.setPathLink(pathLink);

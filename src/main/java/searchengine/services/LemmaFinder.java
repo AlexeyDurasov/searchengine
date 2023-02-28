@@ -9,6 +9,10 @@ import java.util.*;
 
 @Slf4j
 public class LemmaFinder {
+    public LuceneMorphology getLuceneMorphology() {
+        return luceneMorphology;
+    }
+
     private final LuceneMorphology luceneMorphology;
     private static final String WORD_TYPE_REGEX = "\\W\\w&&[^а-яА-Я\\s]";
     private static final String[] particlesNames = new String[]{"МЕЖД", "ПРЕДЛ", "СОЮЗ", "ЧАСТ"};
@@ -80,7 +84,7 @@ public class LemmaFinder {
         return lemmaSet;
     }
 
-    private boolean anyWordBaseBelongToParticle(List<String> wordBaseForms) {
+    public boolean anyWordBaseBelongToParticle(List<String> wordBaseForms) {
         return wordBaseForms.stream().anyMatch(this::hasParticleProperty);
     }
 
@@ -93,7 +97,7 @@ public class LemmaFinder {
         return false;
     }
 
-    private String[] arrayContainsRussianWords(String text) {
+    public String[] arrayContainsRussianWords(String text) {
         return text.toLowerCase(Locale.ROOT)
                 .replaceAll("([^а-я\\s])", " ")
                 .trim()
