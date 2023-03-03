@@ -24,37 +24,32 @@ import java.util.concurrent.RecursiveAction;
 @RequiredArgsConstructor
 public class CreatingMapServiceImpl extends RecursiveAction implements CreatingMapService {
 
-    //private final IndexingService indexingService;
     private final Site mainSite;
     private final String root;
     private final Connect connect;
+    private final IndexingService indexingService;
     private final SitesRepository sitesRepository;
     private final PagesRepository pagesRepository;
     private final IndexesRepository indexesRepository;
     private final LemmasRepository lemmasRepository;
 
-    /*public CreatingMapServiceImpl(Site mainSite, String root, IndexingService indexingService) {
-        this.mainSite = mainSite;
-        this.root = root;
-        this.indexingService = indexingService;
-    }*/
-
     @Override
     protected void compute() {
+        if (indexingService.isStopFlag())
+            return;
         Set<CreatingMapServiceImpl> tasks = new HashSet<>();
         Set<String> pageLinks = parsePage(root);
         for (String link : pageLinks) {
             CreatingMapServiceImpl creatingMapServiceImpl = new CreatingMapServiceImpl(
-                    mainSite, link, connect, sitesRepository, pagesRepository,
+                    mainSite, link, connect, indexingService,
+                    sitesRepository, pagesRepository,
                     indexesRepository, lemmasRepository);
             tasks.add(creatingMapServiceImpl);
         }
-        for (CreatingMapServiceImpl task : tasks) {
+        for (CreatingMapServiceImpl task : tasks)
             task.fork();
-        }
-        for (CreatingMapServiceImpl task : tasks) {
+        for (CreatingMapServiceImpl task : tasks)
             task.join();
-        }
     }
 
     private Set<String> parsePage(String url) {
@@ -110,9 +105,8 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
             pagesRepository.save(page);
             mainSite.setStatusTime(LocalDateTime.now());
             sitesRepository.save(mainSite);
-            if (statusCode < 400) {
+            if (statusCode < 400)
                 addLemmasAndIndexes(content, page);
-            }
             return true;
         }
         return false;
@@ -129,9 +123,8 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
                 lemma.setSite(mainSite);
                 lemma.setLemma(newLemma);
                 lemma.setFrequency(1);
-            } else {
+            } else
                 lemma.setFrequency(lemma.getFrequency() + 1);
-            }
             lemmasRepository.save(lemma);
 
             Index index = new Index();
@@ -142,16 +135,16 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
         }
     }
 
-    public void deleteLemmas(String content) throws IOException {
+    public synchronized void deleteLemmas(String content) throws IOException {
         LemmaFinder creatingLemmas = LemmaFinder.getInstance();
         Map<String, Integer> mapLemmas = new HashMap<>(creatingLemmas.collectLemmas(content));
         Set<String> setLemmas = new HashSet<>(mapLemmas.keySet());
         for (String newLemma : setLemmas) {
             Lemma lemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
             if (lemma != null) {
-                if (lemma.getFrequency() == 1) {
+                if (lemma.getFrequency() == 1)
                     lemmasRepository.delete(lemma);
-                } else {
+                else {
                     lemma.setFrequency(lemma.getFrequency() - 1);
                     lemmasRepository.save(lemma);
                 }

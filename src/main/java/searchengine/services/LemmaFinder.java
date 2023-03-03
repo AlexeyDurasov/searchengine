@@ -9,9 +9,6 @@ import java.util.*;
 
 @Slf4j
 public class LemmaFinder {
-    public LuceneMorphology getLuceneMorphology() {
-        return luceneMorphology;
-    }
 
     private final LuceneMorphology luceneMorphology;
     private static final String WORD_TYPE_REGEX = "\\W\\w&&[^а-яА-Я\\s]";

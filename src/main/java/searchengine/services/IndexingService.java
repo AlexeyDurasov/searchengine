@@ -15,4 +15,6 @@ public interface IndexingService {
     IndexingResponse getIndexingPage(String url);
 
     Site creatingSite(SiteConfig siteConfig, Status status);
+
+    boolean isStopFlag();
 }

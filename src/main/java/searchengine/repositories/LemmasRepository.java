@@ -8,7 +8,6 @@ import searchengine.model.Site;
 @Repository
 public interface LemmasRepository extends CrudRepository<Lemma, Integer> {
 
-    Lemma findByLemma(String lemma);
     Lemma findByLemmaAndSite(String lemma, Site site);
 
     Iterable<Lemma> findAllByLemma(String lemma);
