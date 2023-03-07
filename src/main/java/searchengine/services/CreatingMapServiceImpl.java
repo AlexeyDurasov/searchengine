@@ -7,10 +7,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import searchengine.config.Connect;
-import searchengine.model.Index;
-import searchengine.model.Lemma;
-import searchengine.model.Page;
-import searchengine.model.Site;
+import searchengine.model.*;
 import searchengine.repositories.IndexesRepository;
 import searchengine.repositories.LemmasRepository;
 import searchengine.repositories.PagesRepository;
@@ -80,6 +77,10 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
             }
         } catch (Exception ex) {
             mainSite.setLastError(ex.toString());
+            if (indexingService.isStopFlag()) {
+                mainSite.setLastError("Индексация остановлена пользователем");
+                mainSite.setStatus(Status.FAILED);
+            }
             sitesRepository.save(mainSite);
             ex.printStackTrace();
         }
@@ -93,6 +94,8 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
     }
 
     public synchronized boolean addNewURL(String url, int statusCode, String content) throws IOException {
+        if (indexingService.isStopFlag())
+            return false;
         String pathLink = url.substring(mainSite.getUrl().length()-1);
         Page page = pagesRepository.findByPathLinkAndSite(pathLink, mainSite);
         if(page == null) {
@@ -117,6 +120,8 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
         Map<String, Integer> mapLemmas = new HashMap<>(creatingLemmas.collectLemmas(content));
         Set<String> setLemmas = new HashSet<>(mapLemmas.keySet());
         for (String newLemma : setLemmas) {
+            if (indexingService.isStopFlag())
+                return;
             Lemma lemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
             if (lemma == null) {
                 lemma = new Lemma();

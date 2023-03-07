@@ -40,6 +40,7 @@ public class IndexingServiceImpl implements IndexingService{
         if (threads.size() == 0) {
             lemmasRepository.deleteAll();
             sitesRepository.deleteAll();
+            stopFlag = false;
             startIndexing();
             indexingResponse.setResult(true);
             indexingResponse.setError(null);
@@ -72,16 +73,12 @@ public class IndexingServiceImpl implements IndexingService{
                         sitesRepository, pagesRepository,
                         indexesRepository, lemmasRepository);
                 ForkJoinPool forkJoinPool = new ForkJoinPool();
-                forkJoinPool.invoke(creatingMap);
+                forkJoinPool.execute(creatingMap);
                 while(Thread.currentThread().isAlive()) {
                     if (Thread.currentThread().isInterrupted()) {
                         forkJoinPool.shutdownNow();
-                        site.setLastError("Индексация остановлена пользователем");
-                        site.setStatus(Status.FAILED);
-                        sitesRepository.save(site);
                         break;
-                    }
-                    if (forkJoinPool.getActiveThreadCount() == 0) {
+                    } else if (forkJoinPool.getActiveThreadCount() == 0) {
                         site.setStatus(Status.INDEXED);
                         sitesRepository.save(site);
                         break;
@@ -124,6 +121,11 @@ public class IndexingServiceImpl implements IndexingService{
                         indexingPage(siteConfig, url, statusCode, content);
                     }
                 } catch (Exception ex) {
+                    Site site = sitesRepository.findByUrl(siteConfig.getUrl());
+                    if (site != null) {
+                        site.setLastError(ex.toString());
+                        sitesRepository.save(site);
+                    }
                     ex.printStackTrace();
                 }
                 indexingPage = true;
@@ -143,8 +145,8 @@ public class IndexingServiceImpl implements IndexingService{
 
     private void indexingPage(SiteConfig siteConfig, String url, int statusCode, String content) {
         Thread thread = new Thread(() -> {
+            Site site = sitesRepository.findByUrl(siteConfig.getUrl());
             try {
-                Site site = sitesRepository.findByUrl(siteConfig.getUrl());
                 Page page = new Page();
                 String pathLink = url.substring(siteConfig.getUrl().length() - 1);
                 boolean newPage = false;
@@ -173,10 +175,10 @@ public class IndexingServiceImpl implements IndexingService{
                 site.setStatus(Status.INDEXED);
                 sitesRepository.save(site);
             } catch (Exception ex) {
-                Site site = sitesRepository.findByUrl(siteConfig.getUrl());
-                site.setLastError(ex.toString());
-                site.setStatus(Status.FAILED);
-                sitesRepository.save(site);
+                if (site != null) {
+                    site.setLastError(ex.toString());
+                    sitesRepository.save(site);
+                }
                 ex.printStackTrace();
             }
         });
