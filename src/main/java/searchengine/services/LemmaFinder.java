@@ -23,9 +23,10 @@ public class LemmaFinder {
         this.luceneMorphology = luceneMorphology;
     }
 
-    LemmaFinder(){
+    LemmaFinder() {
         throw new RuntimeException("Disallow construct");
     }
+
     /**
      * Метод разделяет текст на слова, находит все леммы и считает их количество.
      *
@@ -62,6 +63,7 @@ public class LemmaFinder {
 
         return lemmas;
     }
+
     /**
      * @param text текст из которого собираем все леммы
      * @return набор уникальных лемм найденных в тексте

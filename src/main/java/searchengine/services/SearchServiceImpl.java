@@ -87,7 +87,7 @@ public class SearchServiceImpl implements SearchService {
         List<Lemma> allLemmas = new ArrayList<>();
         for (String newLemma : querySet) {
             Iterable<Lemma> lemmaIterable = lemmasRepository.findAllByLemma(newLemma);
-            for (Lemma lemma: lemmaIterable) {
+            for (Lemma lemma : lemmaIterable) {
                 if (site != null && lemma.getSite().getId() == sitesRepository.findByUrl(site).getId()) {
                     allLemmas.add(lemma);
                     checkUnique.add(lemma);
@@ -117,28 +117,37 @@ public class SearchServiceImpl implements SearchService {
                 String link = page.getPathLink();
                 if (link.equals("/"))
                     link = page.getSite().getUrl();
-                else link = page.getSite().getUrl() + link.substring(1);
-                if (addPage) {
-                    if (!pagesRank.containsKey(link))
-                        pagesRank.put(link, index.getRank());
-                    else pagesRank.put(link, index.getRank() + pagesRank.get(link));
-                } else {
-                    boolean skipFirstLemma = true;
-                    Set<String> lemmasSetOnPage = new HashSet<>();
-                    for (Index eachIndex : page.getIndexes())
-                        lemmasSetOnPage.add(lemmasRepository.findById(eachIndex.getLemmaId()).get().getLemma());
-                    for (String eachLemma : querySet) {
-                        if (skipFirstLemma)
-                            skipFirstLemma = false;
-                        else if (!lemmasSetOnPage.contains(eachLemma))
-                            pagesRank.remove(link);
-                    }
-                }
-            } addPage = false;
-        } return pagesRank.entrySet().stream()
+                else
+                    link = page.getSite().getUrl() + link.substring(1);
+                addOrDelPages(addPage, pagesRank, link, index, page);
+            }
+            addPage = false;
+        }
+        return pagesRank.entrySet().stream()
                 .sorted(Map.Entry.comparingByValue())
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
-                        (a, b) -> { throw new AssertionError(); }, LinkedHashMap::new));
+                        (a, b) -> {
+                            throw new AssertionError();
+                        }, LinkedHashMap::new));
+    }
+
+    private void addOrDelPages(boolean addPage, Map<String, Float> pagesRank, String link, Index index, Page page) {
+        if (addPage) {
+            if (!pagesRank.containsKey(link))
+                pagesRank.put(link, index.getRank());
+            else pagesRank.put(link, index.getRank() + pagesRank.get(link));
+        } else {
+            boolean skipFirstLemma = true;
+            Set<String> lemmasSetOnPage = new HashSet<>();
+            for (Index eachIndex : page.getIndexes())
+                lemmasSetOnPage.add(lemmasRepository.findById(eachIndex.getLemmaId()).get().getLemma());
+            for (String eachLemma : querySet) {
+                if (skipFirstLemma)
+                    skipFirstLemma = false;
+                else if (!lemmasSetOnPage.contains(eachLemma))
+                    pagesRank.remove(link);
+            }
+        }
     }
 
     private SearchResponse getResponse(Map<String, Float> pagesRank) {
@@ -176,8 +185,10 @@ public class SearchServiceImpl implements SearchService {
             searchData.setRelevance(findMaxAbsolutRelevance);
             searchDataList.add(searchData);
         }
-        for (SearchData searchData : searchDataList)
-            searchData.setRelevance(searchData.getRelevance() / findMaxAbsolutRelevance);
+        if (findMaxAbsolutRelevance != 0) {
+            for (SearchData searchData : searchDataList)
+                searchData.setRelevance(searchData.getRelevance() / findMaxAbsolutRelevance);
+        }
         Collections.reverse(searchDataList);
         searchResponse.setSearchData(searchDataList);
         return searchResponse;

@@ -19,7 +19,7 @@ import java.util.concurrent.ForkJoinPool;
 
 @Service
 @RequiredArgsConstructor
-public class IndexingServiceImpl implements IndexingService{
+public class IndexingServiceImpl implements IndexingService {
 
     private final SitesList sites;
     private final Connect connect;
@@ -74,7 +74,7 @@ public class IndexingServiceImpl implements IndexingService{
                         indexesRepository, lemmasRepository);
                 ForkJoinPool forkJoinPool = new ForkJoinPool();
                 forkJoinPool.execute(creatingMap);
-                while(Thread.currentThread().isAlive()) {
+                while (Thread.currentThread().isAlive()) {
                     if (Thread.currentThread().isInterrupted()) {
                         forkJoinPool.shutdownNow();
                         break;
@@ -126,7 +126,7 @@ public class IndexingServiceImpl implements IndexingService{
                         site.setLastError(ex.toString());
                         sitesRepository.save(site);
                     }
-                    ex.printStackTrace();
+                    //ex.printStackTrace();
                 }
                 indexingPage = true;
                 break;
@@ -138,7 +138,7 @@ public class IndexingServiceImpl implements IndexingService{
         } else {
             indexingResponse.setResult(false);
             indexingResponse.setError(
-            "Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
+                    "Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
         }
         return indexingResponse;
     }
@@ -152,7 +152,7 @@ public class IndexingServiceImpl implements IndexingService{
                 boolean newPage = false;
                 if (site == null) {
                     site = creatingSite(siteConfig, Status.INDEXING);
-                    page.setPathLink(url);
+                    page.setPathLink(pathLink);
                     page.setCode(statusCode);
                     page.setContent(content
                             /*Files.readString(Paths.get("D:/install/IntelliJ IDEA/ДЗ/из стрима.txt"))*/);
@@ -167,7 +167,10 @@ public class IndexingServiceImpl implements IndexingService{
                         indexesRepository, lemmasRepository);
                 page = pagesRepository.findByPathLinkAndSite(pathLink, site);
                 if (page != null && !newPage) {
-                    creatingMapServiceImpl.deleteLemmas(page.getContent());
+                    LemmaFinder creatingLemmas = LemmaFinder.getInstance();
+                    Map<String, Integer> mapLemmas = new HashMap<>(creatingLemmas.collectLemmas(page.getContent()));
+                    Set<String> setLemmas = new HashSet<>(mapLemmas.keySet());
+                    creatingMapServiceImpl.deleteLemmas(setLemmas);
                     pagesRepository.delete(page);
                 }
                 //String content = pagesRepository.findByPathLink(url).getContent(); //connection.get().toString();
@@ -177,9 +180,10 @@ public class IndexingServiceImpl implements IndexingService{
             } catch (Exception ex) {
                 if (site != null) {
                     site.setLastError(ex.toString());
+                    site.setStatus(Status.FAILED);
                     sitesRepository.save(site);
                 }
-                ex.printStackTrace();
+                //ex.printStackTrace();
             }
         });
         thread.start();
