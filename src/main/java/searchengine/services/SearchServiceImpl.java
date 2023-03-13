@@ -193,7 +193,7 @@ public class SearchServiceImpl implements SearchService {
         for (SearchData searchData : searchDataList)
             searchData.setRelevance(searchData.getRelevance() / findMaxAbsolutRelevance);
         Collections.reverse(searchDataList);
-        searchResponse.setSearchData(subList(searchDataList, offset, limit));
+        searchResponse.setSearchData(subList(searchDataList));
         return searchResponse;
     }
 
@@ -232,7 +232,7 @@ public class SearchServiceImpl implements SearchService {
         return tList;
     }
 
-    private List<SearchData> subList(List<SearchData> searchData, int offset, int limit) {
+    private List<SearchData> subList(List<SearchData> searchData) {
         int toIndex = offset + limit;
         if (toIndex > searchData.size()) {
             toIndex = searchData.size();
