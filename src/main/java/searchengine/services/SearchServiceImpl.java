@@ -29,11 +29,15 @@ public class SearchServiceImpl implements SearchService {
     private Set<String> querySet;
     private String site;
     private String query;
+    private int offset;
+    private int limit;
 
     @Override
-    public SearchResponse getSearch(String querySearch, String siteSearch, int offset, int limit) {
+    public SearchResponse getSearch(String querySearch, String siteSearch, int offsetSearch, int limitSearch) {
         site = siteSearch;
         query = querySearch;
+        offset = offsetSearch;
+        limit = limitSearch;
         SearchResponse searchResponse = new SearchResponse();
         if (site != null) {
             Site currentSite = sitesRepository.findByUrl(site);
@@ -135,7 +139,8 @@ public class SearchServiceImpl implements SearchService {
         if (addPage) {
             if (!pagesRank.containsKey(link))
                 pagesRank.put(link, index.getRank());
-            else pagesRank.put(link, index.getRank() + pagesRank.get(link));
+            else
+                pagesRank.put(link, index.getRank() + pagesRank.get(link));
         } else {
             boolean skipFirstLemma = true;
             Set<String> lemmasSetOnPage = new HashSet<>();
@@ -185,12 +190,10 @@ public class SearchServiceImpl implements SearchService {
             searchData.setRelevance(findMaxAbsolutRelevance);
             searchDataList.add(searchData);
         }
-        if (findMaxAbsolutRelevance != 0) {
-            for (SearchData searchData : searchDataList)
-                searchData.setRelevance(searchData.getRelevance() / findMaxAbsolutRelevance);
-        }
+        for (SearchData searchData : searchDataList)
+            searchData.setRelevance(searchData.getRelevance() / findMaxAbsolutRelevance);
         Collections.reverse(searchDataList);
-        searchResponse.setSearchData(searchDataList);
+        searchResponse.setSearchData(subList(searchDataList, offset, limit));
         return searchResponse;
     }
 
@@ -227,5 +230,16 @@ public class SearchServiceImpl implements SearchService {
             tList = tList.subList(startSL, endSL);
         }
         return tList;
+    }
+
+    private List<SearchData> subList(List<SearchData> searchData, int offset, int limit) {
+        int toIndex = offset + limit;
+        if (toIndex > searchData.size()) {
+            toIndex = searchData.size();
+        }
+        if (offset > toIndex) {
+            return List.of();
+        }
+        return searchData.subList(offset, toIndex);
     }
 }
