@@ -11,8 +11,6 @@ import searchengine.dto.indexing.IndexingResponse;
 import searchengine.model.*;
 import searchengine.repositories.*;
 
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ForkJoinPool;
@@ -37,7 +35,7 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     public IndexingResponse getStartIndexing() {
-        if (threads.size() == 0) {
+        if (threads.isEmpty()) {
             lemmasRepository.deleteAll();
             sitesRepository.deleteAll();
             stopFlag = false;
@@ -68,21 +66,21 @@ public class IndexingServiceImpl implements IndexingService {
         for (int index = 0; index < sites.getSites().size(); index++) {
             Site site = creatingSite(sites.getSites().get(index), Status.INDEXING);
             Thread thread = new Thread(() -> {
-                CreatingMapServiceImpl creatingMap = new CreatingMapServiceImpl(
+                CreatingMap creatingMap = new CreatingMap(
                         site, site.getUrl(), connect, this,
                         sitesRepository, pagesRepository,
                         indexesRepository, lemmasRepository);
                 ForkJoinPool forkJoinPool = new ForkJoinPool();
                 forkJoinPool.execute(creatingMap);
-                while (Thread.currentThread().isAlive()) {
+                while (Thread.currentThread().isAlive() && forkJoinPool.getActiveThreadCount() > 0) {
                     if (Thread.currentThread().isInterrupted()) {
                         forkJoinPool.shutdownNow();
                         break;
-                    } else if (forkJoinPool.getActiveThreadCount() == 0) {
-                        site.setStatus(Status.INDEXED);
-                        sitesRepository.save(site);
-                        break;
                     }
+                }
+                if (!Thread.currentThread().isInterrupted()) {
+                    site.setStatus(Status.INDEXED);
+                    sitesRepository.save(site);
                 }
             });
             thread.setName(site.getUrl());
@@ -93,10 +91,11 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     public IndexingResponse getStopIndexing() {
-        if (threads.size() > 0) {
+        if (!threads.isEmpty()) {
             stopFlag = true;
-            for (Thread thread : threads)
+            for (Thread thread : threads) {
                 thread.interrupt();
+            }
             threads.clear();
             indexingResponse.setResult(true);
             indexingResponse.setError(null);
@@ -161,7 +160,7 @@ public class IndexingServiceImpl implements IndexingService {
                     pagesRepository.save(page);
                     newPage = true;
                 }
-                CreatingMapServiceImpl creatingMapServiceImpl = new CreatingMapServiceImpl(
+                CreatingMap creatingMap = new CreatingMap(
                         site, url, connect, this,
                         sitesRepository, pagesRepository,
                         indexesRepository, lemmasRepository);
@@ -170,11 +169,11 @@ public class IndexingServiceImpl implements IndexingService {
                     LemmaFinder creatingLemmas = LemmaFinder.getInstance();
                     Map<String, Integer> mapLemmas = new HashMap<>(creatingLemmas.collectLemmas(page.getContent()));
                     Set<String> setLemmas = new HashSet<>(mapLemmas.keySet());
-                    creatingMapServiceImpl.deleteLemmas(setLemmas);
+                    creatingMap.deleteLemmas(setLemmas);
                     pagesRepository.delete(page);
                 }
                 //String content = pagesRepository.findByPathLink(url).getContent(); //connection.get().toString();
-                creatingMapServiceImpl.addNewURL(url, statusCode, content);
+                creatingMap.addNewURL(url, statusCode, content);
                 site.setStatus(Status.INDEXED);
                 sitesRepository.save(site);
             } catch (Exception ex) {

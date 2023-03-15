@@ -19,7 +19,7 @@ import java.util.*;
 import java.util.concurrent.RecursiveAction;
 
 @RequiredArgsConstructor
-public class CreatingMapServiceImpl extends RecursiveAction implements CreatingMapService {
+public class CreatingMap extends RecursiveAction {
 
     private final Site mainSite;
     private final String root;
@@ -32,26 +32,27 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
 
     @Override
     protected void compute() {
-        if (indexingService.isStopFlag())
+        if (indexingService.isStopFlag()) {
             return;
-        Set<CreatingMapServiceImpl> tasks = new HashSet<>();
+        }
+        Set<CreatingMap> tasks = new HashSet<>();
         Set<String> pageLinks = parsePage(root);
         for (String link : pageLinks) {
-            CreatingMapServiceImpl creatingMapServiceImpl = new CreatingMapServiceImpl(
+            CreatingMap creatingMap = new CreatingMap(
                     mainSite, link, connect, indexingService,
                     sitesRepository, pagesRepository,
                     indexesRepository, lemmasRepository);
-            tasks.add(creatingMapServiceImpl);
+            tasks.add(creatingMap);
         }
-        for (CreatingMapServiceImpl task : tasks)
+        for (CreatingMap task : tasks) {
             task.fork();
-        for (CreatingMapServiceImpl task : tasks)
+        }
+        for (CreatingMap task : tasks) {
             task.join();
+        }
     }
 
     private Set<String> parsePage(String url) {
-        /*long start = System.currentTimeMillis();
-        System.out.println("start parsePage - " + url);*/
         Set<String> links = new HashSet<>();
         try {
             if (checkURL(url)) {
@@ -69,7 +70,6 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
                         int statusCode = connection.execute().statusCode();
                         if (addNewURL(link, statusCode, content)) {
                             links.add(link);
-                            //System.out.println("add new link - " + link);
                         }
                     }
                 }
@@ -84,8 +84,6 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
             sitesRepository.save(mainSite);
             //ex.printStackTrace();
         }
-        /*System.out.println("end parsePage - " + url);
-        System.out.println("time working  - " + (System.currentTimeMillis() - start) + " ms");*/
         return links;
     }
 
@@ -94,8 +92,9 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
     }
 
     public boolean addNewURL(String url, int statusCode, String content) throws IOException {
-        if (indexingService.isStopFlag())
+        if (indexingService.isStopFlag()) {
             return false;
+        }
         String pathLink = url.substring(mainSite.getUrl().length()-1);
         Page page = pagesRepository.findByPathLinkAndSite(pathLink, mainSite);
         if(page == null) {
@@ -121,16 +120,18 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
 
     private synchronized void addLemmasAndIndexes(Map<String, Integer> mapLemmas, Set<String> setLemmas, Page page) {
         for (String newLemma : setLemmas) {
-            if (indexingService.isStopFlag())
+            if (indexingService.isStopFlag()) {
                 return;
+            }
             Lemma lemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
             if (lemma == null) {
                 lemma = new Lemma();
                 lemma.setSite(mainSite);
                 lemma.setLemma(newLemma);
                 lemma.setFrequency(1);
-            } else
+            } else {
                 lemma.setFrequency(lemma.getFrequency() + 1);
+            }
             lemmasRepository.save(lemma);
 
             Index index = new Index();
@@ -145,9 +146,9 @@ public class CreatingMapServiceImpl extends RecursiveAction implements CreatingM
         for (String newLemma : setLemmas) {
             Lemma lemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
             if (lemma != null) {
-                if (lemma.getFrequency() == 1)
+                if (lemma.getFrequency() == 1) {
                     lemmasRepository.delete(lemma);
-                else {
+                } else {
                     lemma.setFrequency(lemma.getFrequency() - 1);
                     lemmasRepository.save(lemma);
                 }
