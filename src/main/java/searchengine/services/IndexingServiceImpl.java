@@ -1,5 +1,6 @@
 package searchengine.services;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
@@ -16,6 +17,7 @@ import java.util.*;
 import java.util.concurrent.ForkJoinPool;
 
 @Service
+@Getter
 @RequiredArgsConstructor
 public class IndexingServiceImpl implements IndexingService {
 
@@ -29,9 +31,9 @@ public class IndexingServiceImpl implements IndexingService {
     private IndexingResponse indexingResponse = new IndexingResponse();
     private boolean stopFlag = false;
 
-    public boolean isStopFlag() {
+    /*public boolean isStopFlag() {
         return stopFlag;
-    }
+    }*/
 
     @Override
     public IndexingResponse getStartIndexing() {
@@ -66,10 +68,7 @@ public class IndexingServiceImpl implements IndexingService {
         for (int index = 0; index < sites.getSites().size(); index++) {
             Site site = creatingSite(sites.getSites().get(index), Status.INDEXING);
             Thread thread = new Thread(() -> {
-                CreatingMap creatingMap = new CreatingMap(
-                        site, site.getUrl(), connect, this,
-                        sitesRepository, pagesRepository,
-                        indexesRepository, lemmasRepository);
+                CreatingMap creatingMap = new CreatingMap(site, site.getUrl(), this);
                 ForkJoinPool forkJoinPool = new ForkJoinPool();
                 forkJoinPool.execute(creatingMap);
                 while (Thread.currentThread().isAlive() && forkJoinPool.getActiveThreadCount() > 0) {
@@ -160,10 +159,7 @@ public class IndexingServiceImpl implements IndexingService {
                     pagesRepository.save(page);
                     newPage = true;
                 }
-                CreatingMap creatingMap = new CreatingMap(
-                        site, url, connect, this,
-                        sitesRepository, pagesRepository,
-                        indexesRepository, lemmasRepository);
+                CreatingMap creatingMap = new CreatingMap(site, url, this);
                 page = pagesRepository.findByPathLinkAndSite(pathLink, site);
                 if (page != null && !newPage) {
                     LemmaFinder creatingLemmas = LemmaFinder.getInstance();

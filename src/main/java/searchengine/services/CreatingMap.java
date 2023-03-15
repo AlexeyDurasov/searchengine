@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.RecursiveAction;
 
-@RequiredArgsConstructor
+//@RequiredArgsConstructor
 public class CreatingMap extends RecursiveAction {
 
     private final Site mainSite;
@@ -30,6 +30,17 @@ public class CreatingMap extends RecursiveAction {
     private final IndexesRepository indexesRepository;
     private final LemmasRepository lemmasRepository;
 
+    public CreatingMap(Site mainSite, String root, IndexingService indexingService) {
+        this.mainSite = mainSite;
+        this.root = root;
+        this.connect = indexingService.getConnect();
+        this.indexingService = indexingService;
+        this.sitesRepository = indexingService.getSitesRepository();
+        this.pagesRepository = indexingService.getPagesRepository();
+        this.indexesRepository = indexingService.getIndexesRepository();
+        this.lemmasRepository = indexingService.getLemmasRepository();
+    }
+
     @Override
     protected void compute() {
         if (indexingService.isStopFlag()) {
@@ -38,10 +49,7 @@ public class CreatingMap extends RecursiveAction {
         Set<CreatingMap> tasks = new HashSet<>();
         Set<String> pageLinks = parsePage(root);
         for (String link : pageLinks) {
-            CreatingMap creatingMap = new CreatingMap(
-                    mainSite, link, connect, indexingService,
-                    sitesRepository, pagesRepository,
-                    indexesRepository, lemmasRepository);
+            CreatingMap creatingMap = new CreatingMap(mainSite, link, indexingService);
             tasks.add(creatingMap);
         }
         for (CreatingMap task : tasks) {
