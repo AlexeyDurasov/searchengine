@@ -13,6 +13,13 @@ server:
   port: 8080
 
 spring:
+  main:
+    banner-mode: "off"
+  output:
+    ansi:
+      enabled: ALWAYS
+  logging:
+    file: /logs/application-debug.log
   datasource:
     username: root
     password: Cfkk161205

@@ -1,6 +1,7 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -19,6 +20,7 @@ import java.util.*;
 import java.util.concurrent.RecursiveAction;
 
 //@RequiredArgsConstructor
+@Slf4j
 public class CreatingMap extends RecursiveAction {
 
     private final Site mainSite;
@@ -78,6 +80,7 @@ public class CreatingMap extends RecursiveAction {
                         int statusCode = connection.execute().statusCode();
                         if (addNewURL(link, statusCode, content)) {
                             links.add(link);
+                            log.info("Добавлена страница: {}", link);
                         }
                     }
                 }
@@ -86,10 +89,12 @@ public class CreatingMap extends RecursiveAction {
         } catch (Exception ex) {
             mainSite.setLastError(ex.toString());
             if (indexingService.isStopFlag()) {
+                log.info("Индексация остановлена пользователем: {}", mainSite.getUrl());
                 mainSite.setLastError("Индексация остановлена пользователем");
                 mainSite.setStatus(Status.FAILED);
             }
             sitesRepository.save(mainSite);
+            log.debug(ex.toString());
             //ex.printStackTrace();
         }
         return links;
