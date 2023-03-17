@@ -12,14 +12,16 @@ indexing-settings:
 server:
   port: 8080
 
+logging:
+  file:
+    name: /logs/application-debug.log
+
 spring:
   main:
     banner-mode: "off"
   output:
     ansi:
       enabled: ALWAYS
-  logging:
-    file: /logs/application-debug.log
   datasource:
     username: root
     password: Cfkk161205
