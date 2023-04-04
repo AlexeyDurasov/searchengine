@@ -70,17 +70,13 @@ public class CreatingMap extends RecursiveAction {
                         .referrer(connect.getReferrer()).maxBodySize(0);
                 Document doc = connection.get();
                 Elements elements = doc.select("a[href]");
-                for (Element element : elements) {
-                    String link = element.absUrl("href");
-                    if (checkURL(link)) {
-                        Thread.sleep(200);
-                        connection = Jsoup.connect(link).userAgent(connect.getUserAgent())
-                                .referrer(connect.getReferrer()).maxBodySize(0);
-                        String content = connection.get().toString();
-                        int statusCode = connection.execute().statusCode();
-                        if (addNewURL(link, statusCode, content)) {
+                String content = connection.get().toString();
+                int statusCode = connection.execute().statusCode();
+                if (addNewURL(url, statusCode, content)) {
+                    for (Element element : elements) {
+                        String link = element.absUrl("href");
+                        if (checkURL(link)) {
                             links.add(link);
-                            log.info("Добавлена страница: {}", link);
                         }
                     }
                 }
@@ -94,7 +90,7 @@ public class CreatingMap extends RecursiveAction {
                 mainSite.setStatus(Status.FAILED);
             }
             sitesRepository.save(mainSite);
-            log.debug(ex.toString());
+            log.warn(ex.toString());
             //ex.printStackTrace();
         }
         return links;
@@ -109,7 +105,12 @@ public class CreatingMap extends RecursiveAction {
             return false;
         }
         String pathLink = url.substring(mainSite.getUrl().length()-1);
-        Page page = pagesRepository.findByPathLinkAndSite(pathLink, mainSite);
+        Page page = null;
+        try {
+            page = pagesRepository.findByPathLinkAndSite(pathLink, mainSite);
+        } catch (Exception e) {
+            log.info(pathLink + " - " + e);
+        }
         if(page == null) {
             page = new Page();
             page.setPathLink(pathLink);
@@ -136,7 +137,12 @@ public class CreatingMap extends RecursiveAction {
             if (indexingService.isStopFlag()) {
                 return;
             }
-            Lemma lemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
+            Lemma lemma = null;
+            try {
+                lemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
+            } catch (Exception e) {
+                log.info(newLemma + " - " + e);
+            }
             if (lemma == null) {
                 lemma = new Lemma();
                 lemma.setSite(mainSite);

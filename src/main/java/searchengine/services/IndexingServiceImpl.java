@@ -2,6 +2,7 @@ package searchengine.services;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ForkJoinPool;
 
+@Slf4j
 @Service
 @Getter
 @RequiredArgsConstructor
@@ -38,9 +40,11 @@ public class IndexingServiceImpl implements IndexingService {
     @Override
     public IndexingResponse getStartIndexing() {
         if (threads.isEmpty()) {
+            log.info("Старт очистки базы");
             lemmasRepository.deleteAll();
             sitesRepository.deleteAll();
             stopFlag = false;
+            log.info("Очистка закончена, старт индексации");
             startIndexing();
             indexingResponse.setResult(true);
             indexingResponse.setError(null);
@@ -78,6 +82,7 @@ public class IndexingServiceImpl implements IndexingService {
                     }
                 }
                 if (!Thread.currentThread().isInterrupted()) {
+                    log.info("Индексация завершилась успешно для сайта: {}", site.getUrl());
                     site.setStatus(Status.INDEXED);
                     sitesRepository.save(site);
                 }

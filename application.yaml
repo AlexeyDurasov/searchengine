@@ -14,7 +14,7 @@ server:
 
 logging:
   file:
-    name: /logs/application-debug.log
+    name: logs/application-debug.log
 
 spring:
   main:
@@ -35,7 +35,7 @@ spring:
         dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
 
 connect-settings:
   userAgent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 YaBrowser/23.1.1.1138 Yowser/2.5 Safari/537.36
