@@ -141,7 +141,8 @@ public class CreatingMap extends RecursiveAction {
             try {
                 lemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
             } catch (Exception e) {
-                log.info(newLemma + " - " + e);
+                log.info(newLemma + " - " + mainSite.getUrl() + " - " + e);
+                lemma.setFrequency(lemma.getFrequency() + 1);
             }
             if (lemma == null) {
                 lemma = new Lemma();
