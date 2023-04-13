@@ -1,6 +1,5 @@
 package searchengine.services;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
@@ -19,7 +18,6 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.RecursiveAction;
 
-//@RequiredArgsConstructor
 @Slf4j
 public class CreatingMap extends RecursiveAction {
 
@@ -105,12 +103,7 @@ public class CreatingMap extends RecursiveAction {
             return false;
         }
         String pathLink = url.substring(mainSite.getUrl().length()-1);
-        Page page = null;
-        try {
-            page = pagesRepository.findByPathLinkAndSite(pathLink, mainSite);
-        } catch (Exception e) {
-            log.info(pathLink + " - " + e);
-        }
+        Page page = pagesRepository.findByPathLinkAndSite(pathLink, mainSite);
         if(page == null) {
             page = new Page();
             page.setPathLink(pathLink);
@@ -137,33 +130,36 @@ public class CreatingMap extends RecursiveAction {
             if (indexingService.isStopFlag()) {
                 return;
             }
-            Lemma lemma = null;
             try {
-                lemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
-            } catch (Exception e) {
-                log.info(newLemma + " - " + mainSite.getUrl() + " - " + e);
-                lemma.setFrequency(lemma.getFrequency() + 1);
-            }
-            if (lemma == null) {
-                lemma = new Lemma();
-                lemma.setSite(mainSite);
-                lemma.setLemma(newLemma);
-                lemma.setFrequency(1);
-            } else {
-                lemma.setFrequency(lemma.getFrequency() + 1);
-            }
-            lemmasRepository.save(lemma);
+                Lemma lemma;
+                Optional<Lemma> optionalLemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
+                if (optionalLemma.isEmpty()) {
+                    lemma = new Lemma();
+                    lemma.setSite(mainSite);
+                    lemma.setLemma(newLemma);
+                    lemma.setFrequency(1);
+                    lemmasRepository.save(lemma);
+                    log.info("add new lemma: {}", lemma);
+                } else {
+                    lemma = optionalLemma.get();
+                    lemma.setFrequency(lemma.getFrequency() + 1);
+                    lemmasRepository.save(lemma);
+                    log.info("Frequency + 1: {}", lemma);
+                }
 
-            Index index = new Index();
-            index.setPage(page);
-            index.setLemmaId(lemma.getId());
-            index.setRank(mapLemmas.get(newLemma));
-            indexesRepository.save(index);
+                Index index = new Index();
+                index.setPage(page);
+                index.setLemmaId(lemma.getId());
+                index.setRank(mapLemmas.get(newLemma));
+                indexesRepository.save(index);
+            } catch (Exception exception) {
+                log.warn("find exception: " + mainSite.getName() + ", lemma='" + newLemma + " " + exception.getMessage());
+            }
         }
     }
 
     public synchronized void deleteLemmas(Set<String> setLemmas) {
-        for (String newLemma : setLemmas) {
+        /*for (String newLemma : setLemmas) {
             Lemma lemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
             if (lemma != null) {
                 if (lemma.getFrequency() == 1) {
@@ -173,6 +169,6 @@ public class CreatingMap extends RecursiveAction {
                     lemmasRepository.save(lemma);
                 }
             }
-        }
+        }*/
     }
 }

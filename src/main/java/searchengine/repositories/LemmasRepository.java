@@ -5,10 +5,12 @@ import org.springframework.stereotype.Repository;
 import searchengine.model.Lemma;
 import searchengine.model.Site;
 
+import java.util.Optional;
+
 @Repository
 public interface LemmasRepository extends CrudRepository<Lemma, Integer> {
 
-    Lemma findByLemmaAndSite(String lemma, Site site);
+    Optional<Lemma> findByLemmaAndSite(String lemma, Site site);
 
     Iterable<Lemma> findAllByLemma(String lemma);
 }
