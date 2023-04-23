@@ -17,6 +17,8 @@ import java.util.Objects;
 @NoArgsConstructor
 @Table(name = "lemmas"/*, uniqueConstraints = @UniqueConstraint(columnNames = {"lemma", "site_id"})*/)
 public class Lemma implements Serializable {
+    @Version
+    private Long version;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
@@ -26,7 +28,7 @@ public class Lemma implements Serializable {
     @Column(columnDefinition = "VARCHAR(255)", nullable = false)
     private String lemma;
     private int frequency;
-
+/*
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -51,5 +53,5 @@ public class Lemma implements Serializable {
                 ", lemma='" + lemma + '\'' +
                 ", frequency=" + frequency +
                 '}';
-    }
+    }*/
 }

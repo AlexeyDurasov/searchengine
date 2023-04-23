@@ -13,6 +13,7 @@ import searchengine.repositories.LemmasRepository;
 import searchengine.repositories.PagesRepository;
 import searchengine.repositories.SitesRepository;
 
+import javax.persistence.OptimisticLockException;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -130,32 +131,41 @@ public class CreatingMap extends RecursiveAction {
             if (indexingService.isStopFlag()) {
                 return;
             }
+            Lemma lemma = new Lemma();
             try {
-                Lemma lemma;
-                Optional<Lemma> optionalLemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
-                if (optionalLemma.isEmpty()) {
-                    lemma = new Lemma();
-                    lemma.setSite(mainSite);
-                    lemma.setLemma(newLemma);
-                    lemma.setFrequency(1);
-                    lemmasRepository.save(lemma);
-                    log.info("add new lemma: {}", lemma);
-                } else {
-                    lemma = optionalLemma.get();
-                    lemma.setFrequency(lemma.getFrequency() + 1);
-                    lemmasRepository.save(lemma);
-                    log.info("Frequency + 1: {}", lemma);
-                }
-
-                Index index = new Index();
-                index.setPage(page);
-                index.setLemmaId(lemma.getId());
-                index.setRank(mapLemmas.get(newLemma));
-                indexesRepository.save(index);
-            } catch (Exception exception) {
-                log.warn("find exception: " + mainSite.getName() + ", lemma='" + newLemma + " " + exception.getMessage());
+                saveLemma(newLemma, lemma);
+            } catch (OptimisticLockException exception) {
+                saveLemma(newLemma, lemma);
+                //log.warn("find exception: " + mainSite.getName() + ", lemma='" + newLemma + " " + exception.getMessage());
             }
+            Index index = new Index();
+            index.setPage(page);
+            index.setLemmaId(lemma.getId());
+            index.setRank(mapLemmas.get(newLemma));
+            indexesRepository.save(index);
         }
+    }
+
+    private void saveLemma(String newLemma, Lemma lemma) {
+        //try {
+            Optional<Lemma> optionalLemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
+            if (optionalLemma.isEmpty()) {
+                lemma = new Lemma();
+                lemma.setSite(mainSite);
+                lemma.setLemma(newLemma);
+                lemma.setFrequency(1);
+                lemmasRepository.save(lemma);
+                //log.info("add new lemma: {}", lemma);
+            } else {
+                lemma = optionalLemma.get();
+                lemma.setFrequency(lemma.getFrequency() + 1);
+                lemmasRepository.save(lemma);
+                //log.info("Frequency + 1: {}", lemma);
+            }
+        /*} catch (OptimisticLockException exception) {
+            saveLemma(newLemma, lemma);
+            log.warn("find exception: " + mainSite.getName() + ", lemma='" + newLemma + " " + exception.getMessage());
+        }*/
     }
 
     public synchronized void deleteLemmas(Set<String> setLemmas) {
