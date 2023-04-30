@@ -103,6 +103,7 @@ public class CreatingMap extends RecursiveAction {
         if (indexingService.isStopFlag()) {
             return false;
         }
+        long startPage = System.currentTimeMillis();
         String pathLink = url.substring(mainSite.getUrl().length()-1);
         Page page = pagesRepository.findByPathLinkAndSite(pathLink, mainSite);
         if(page == null) {
@@ -116,27 +117,42 @@ public class CreatingMap extends RecursiveAction {
             mainSite.setStatusTime(LocalDateTime.now());
             sitesRepository.save(mainSite);
             if (statusCode < 400) {
+                long startFinder = System.currentTimeMillis();
+                log.info(startFinder - startPage + " - Page - " + pathLink);
                 LemmaFinder creatingLemmas = LemmaFinder.getInstance();
                 Map<String, Integer> mapLemmas = new HashMap<>(creatingLemmas.collectLemmas(content));
                 Set<String> setLemmas = new HashSet<>(mapLemmas.keySet());
+                long startAddLemma = System.currentTimeMillis();
+                log.info(startAddLemma - startFinder + " - Finder - " + pathLink);
                 addLemmasAndIndexes(mapLemmas, setLemmas, page);
+                log.info(System.currentTimeMillis() - startAddLemma + " - AddLemma - " + pathLink);
             }
             return true;
         }
         return false;
     }
 
-    private synchronized void addLemmasAndIndexes(Map<String, Integer> mapLemmas, Set<String> setLemmas, Page page) {
+    private void addLemmasAndIndexes(Map<String, Integer> mapLemmas, Set<String> setLemmas, Page page) {
         for (String newLemma : setLemmas) {
             if (indexingService.isStopFlag()) {
                 return;
             }
-            Lemma lemma = new Lemma();
-            try {
-                saveLemma(newLemma, lemma);
-            } catch (OptimisticLockException exception) {
-                saveLemma(newLemma, lemma);
-                //log.warn("find exception: " + mainSite.getName() + ", lemma='" + newLemma + " " + exception.getMessage());
+            Lemma lemma;
+            synchronized(lemmasRepository) {
+                Optional<Lemma> optionalLemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
+                if (optionalLemma.isEmpty()) {
+                    lemma = new Lemma();
+                    lemma.setSite(mainSite);
+                    lemma.setLemma(newLemma);
+                    lemma.setFrequency(1);
+                    lemmasRepository.save(lemma);
+                    //log.info("add new lemma: {}", lemma);
+                } else {
+                    lemma = optionalLemma.get();
+                    lemma.setFrequency(lemma.getFrequency() + 1);
+                    lemmasRepository.save(lemma);
+                    //log.info("Frequency + 1: {}", lemma);
+                }
             }
             Index index = new Index();
             index.setPage(page);
@@ -144,28 +160,6 @@ public class CreatingMap extends RecursiveAction {
             index.setRank(mapLemmas.get(newLemma));
             indexesRepository.save(index);
         }
-    }
-
-    private void saveLemma(String newLemma, Lemma lemma) {
-        //try {
-            Optional<Lemma> optionalLemma = lemmasRepository.findByLemmaAndSite(newLemma, mainSite);
-            if (optionalLemma.isEmpty()) {
-                lemma = new Lemma();
-                lemma.setSite(mainSite);
-                lemma.setLemma(newLemma);
-                lemma.setFrequency(1);
-                lemmasRepository.save(lemma);
-                //log.info("add new lemma: {}", lemma);
-            } else {
-                lemma = optionalLemma.get();
-                lemma.setFrequency(lemma.getFrequency() + 1);
-                lemmasRepository.save(lemma);
-                //log.info("Frequency + 1: {}", lemma);
-            }
-        /*} catch (OptimisticLockException exception) {
-            saveLemma(newLemma, lemma);
-            log.warn("find exception: " + mainSite.getName() + ", lemma='" + newLemma + " " + exception.getMessage());
-        }*/
     }
 
     public synchronized void deleteLemmas(Set<String> setLemmas) {

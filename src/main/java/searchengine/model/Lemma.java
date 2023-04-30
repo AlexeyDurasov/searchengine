@@ -17,8 +17,6 @@ import java.util.Objects;
 @NoArgsConstructor
 @Table(name = "lemmas"/*, uniqueConstraints = @UniqueConstraint(columnNames = {"lemma", "site_id"})*/)
 public class Lemma implements Serializable {
-    @Version
-    private Long version;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
